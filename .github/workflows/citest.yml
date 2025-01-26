@@ -30,8 +30,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install pylint
         pip install -r requirements.txt
-    - name: Analysing the code with pylint
-      run: pylint $(git ls-files '*.py') | tee test-report.txt || true
+    - name: Analysing the code with pylint and save report
+      run: pylint $(git ls-files '*.py') | tee pylint-report-${{ matrix.python-version }}.txt || true
     
     - name: Upload pylint report as an artifact
       uses: actions/upload-artifact@v3
