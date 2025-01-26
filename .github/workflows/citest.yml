@@ -34,7 +34,7 @@ jobs:
       run: pylint $(git ls-files '*.py') | tee pylint-report-${{ matrix.python-version }}.txt || true
     
     - name: Upload pylint report as an artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: pylint-report-${{ matrix.python-version }}
         path: pylint-report-${{ matrix.python-version }}.txt
