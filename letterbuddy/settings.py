@@ -16,7 +16,8 @@ from dotenv import load_dotenv
 import os
 
 
-# load the env variables for .env(if they are available in the os than they will be chosen over ones in the .env file)
+# load the env variables for .env
+# (if they are available in the os than they will be chosen over ones in the .env file)
 load_dotenv() 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -40,7 +41,6 @@ else:
 CORS_ORIGIN_ALLOW_ALL = os.environ.get('CORS_ORIGIN_ALLOW_ALL') == 'True'
 
 # Application definition
-# TODO add the apps we will create
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    'accounts',
+    'exercises',
 ]
 
 # 'corsheaders.middleware.CorsMiddleware' always first
