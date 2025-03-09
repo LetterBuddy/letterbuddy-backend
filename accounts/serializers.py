@@ -33,13 +33,14 @@ class AdultRegisterSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         user = User.objects.create_user(
+            role = User.Role.ADULT,
             first_name=validated_data['first_name'],
             last_name=validated_data['last_name'],
             email=validated_data['email'],
             username=validated_data['username'],
             password=validated_data['password']
         )
-        adult = Adult.objects.create(user=user)
+        adult = AdultProfile.objects.create(user=user)
         adult.save()
         user.save()
         return user
