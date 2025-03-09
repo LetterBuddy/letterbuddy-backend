@@ -44,3 +44,6 @@ class AdultRegisterSerializer(serializers.ModelSerializer):
         adult.save()
         user.save()
         return user
+    
+class LogoutSerializer(serializers.Serializer):
+    refresh_token = serializers.CharField()

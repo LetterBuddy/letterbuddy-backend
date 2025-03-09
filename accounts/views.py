@@ -8,7 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .permissions import IsAdult, IsChild
 from .models import AdultProfile, User
 
-from .serializers import AdultRegisterSerializer
+from .serializers import *
 
 
 class AdultRegisterView(generics.CreateAPIView):
@@ -19,12 +19,14 @@ class AdultRegisterView(generics.CreateAPIView):
 
 class LogoutView(APIView):
     permission_classes = (IsAuthenticated,)
-
+    serializer_class = LogoutSerializer
     def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True) 
+        refresh_token = serializer.validated_data["refresh_token"]
         try:
-            # get the refresh token from the request data and blacklist it
+            # blacklist the refresh token
             # so that the user can no longer use it to get a new access token
-            refresh_token = request.data["refresh_token"]
             token = RefreshToken(refresh_token)
             token.blacklist()
             # 205 - the UI should reset - and remove the access token from the local storage
