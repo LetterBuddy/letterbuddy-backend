@@ -1,14 +1,19 @@
-from django.urls import path
-from accounts.views import (
-    AdultRegisterView, LogoutView,
+from django.urls import path, include
+from . import views
+from .views import AdultRegisterView, LogoutView, ChildrenView
 
-    )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView, TokenRefreshView,
     )
+from rest_framework import routers
+
+router = routers.DefaultRouter()
+router.register('child', views.ChildrenView, basename='child')
+
 
 urlpatterns = [
-    path('register/adult/', AdultRegisterView.as_view(), name='adult_register'),
+    path('', include(router.urls)),
+    path('adult/', AdultRegisterView.as_view(), name='adult_register'),
     path('login/', TokenObtainPairView.as_view(), name='login'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('logout/', LogoutView.as_view(), name='logout'),

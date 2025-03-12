@@ -1,11 +1,11 @@
 from django.shortcuts import render
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .permissions import IsAdult, IsChild
+from .permissions import IsAuthenticatedAdult, IsAuthenticatedChild
 from .models import AdultProfile, User
 
 from .serializers import *
@@ -15,6 +15,7 @@ class AdultRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = AdultRegisterSerializer
+
 
 
 class LogoutView(APIView):
@@ -33,3 +34,23 @@ class LogoutView(APIView):
             return Response(status=status.HTTP_205_RESET_CONTENT)
         except Exception:
             return Response(status=status.HTTP_400_BAD_REQUEST)
+        
+
+# model viewset - provides all the CRUD operations: 
+# 6 endpoints: GET(all) / GET(by id)/ POST / PUT / PATCH / DELETE
+# POST - registering a child has a different serializer
+# TODO the GET request for a specific child(by id) is pointless at this point
+class ChildrenView(viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticatedAdult,)
+    lookup_field = "user_id"
+
+    def get_serializer_class(self):
+        # create - for registering a child (POST)
+        if self.action == 'create':
+            return ChildRegisterSerializer
+        return ChildSerializer
+    
+    # only children of the logged in adult
+    def get_queryset(self):
+        adult = AdultProfile.objects.get(user=self.request.user)
+        return ChildProfile.objects.filter(guiding_adult=adult)

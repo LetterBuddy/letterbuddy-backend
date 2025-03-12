@@ -18,7 +18,7 @@ import os
 
 # load the env variables for .env
 # (if they are available in the os than they will be chosen over ones in the .env file)
-load_dotenv() 
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
