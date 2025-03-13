@@ -87,17 +87,18 @@ class ChildRegisterSerializer(BaseUserRegisterSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('username', 'first_name', 'last_name', 'role')
+        fields = ('id', 'username', 'first_name', 'last_name', 'role')
+        # will only show when retrieving the user
+        extra_kwargs = {
+            'id': {'read_only': True},
+            'role': {'read_only': True},
+        }
 
 class ChildSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = UserSerializer()
     class Meta:
         model = ChildProfile
         fields = ('user', 'exercise_language', 'exercise_level')
-        # the user field will show only when retrieving the child
-        extra_kwargs = {
-            'user': {'read_only': True},
-        }
 
 
 class LogoutSerializer(serializers.Serializer):

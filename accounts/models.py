@@ -32,6 +32,7 @@ class ChildProfile(models.Model):
         LETTERS = "letters", "Letters"
         WORDS = "words", "Words"
         CATEGORY = "category", "Category"
+        
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     guiding_adult = models.ForeignKey(AdultProfile, on_delete=models.CASCADE, related_name="children")
     exercise_language = models.CharField(max_length=50, choices=ExerciseLanguage.choices, default='en')
