@@ -7,11 +7,10 @@ class ExerciseSubmission(models.Model):
         VEHICLE = "vehicle", "Vehicle"
         ANIMAL = "animal", "Animal"
 
-
     child = models.ForeignKey(ChildProfile ,on_delete=models.CASCADE)
     requested_text = models.CharField()
     submitted_text = models.CharField()
-
+    # TODO learn more about the ImageField - if not needed - remove Pillow
     uploaded_image = models.ImageField()
     # could maybe use DecimalField instead
     score = models.FloatField()

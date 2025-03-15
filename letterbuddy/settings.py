@@ -173,3 +173,4 @@ SIMPLE_JWT = {
     'SIGNING_KEY': SECRET_KEY, # the key used to sign the tokens
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
