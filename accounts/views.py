@@ -20,9 +20,8 @@ class AdultRegisterView(generics.CreateAPIView):
 
 class LogoutView(APIView):
     permission_classes = (IsAuthenticated,)
-    serializer_class = LogoutSerializer
     def post(self, request):
-        serializer = self.get_serializer(data=request.data)
+        serializer = LogoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True) 
         refresh_token = serializer.validated_data["refresh_token"]
         try:
