@@ -17,11 +17,13 @@ class AdultRegisterView(generics.CreateAPIView):
     serializer_class = AdultRegisterSerializer
 
 
-
-class LogoutView(APIView):
+# unlike APIView, GenericAPIView provide serializer_class
+# which helps drf-spectacular to generate the schema
+class LogoutView(generics.GenericAPIView):
     permission_classes = (IsAuthenticated,)
+    serializer_class = LogoutSerializer
     def post(self, request):
-        serializer = LogoutSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True) 
         refresh_token = serializer.validated_data["refresh_token"]
         try:
