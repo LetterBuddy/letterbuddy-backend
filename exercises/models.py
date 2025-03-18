@@ -12,6 +12,7 @@ class ExerciseSubmission(models.Model):
     requested_text = models.CharField()
     submitted_text = models.CharField()
 
+    # TODO check about ImageField instead of IMGhippo, if not needed remember to remove pillow from requirements
     uploaded_image = models.ImageField()
     # could maybe use DecimalField instead
     score = models.FloatField()
@@ -33,3 +34,10 @@ class Letter(models.Model):
     count_apperances = models.IntegerField()
     def __str__(self):
         return self.letter + " in " + self.language
+
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    description = models.CharField()
+    link = models.URLField()
+    def __str__(self):
+        return self.title + " " + self.link
