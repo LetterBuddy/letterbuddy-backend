@@ -12,6 +12,16 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.9"]
+    env:
+        DEBUG: 'True'
+        # TODO add ALLOWED_HOSTS for production
+        # TODO remove for production and add CORS_ORIGIN_WHITELIST instead
+        CORS_ORIGIN_ALLOW_ALL: 'True'
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        IMGHIPPO_API_KEY : ${{ secrets.IMGHIPPO_API_KEY }}
+    
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -42,13 +52,4 @@ jobs:
     - name: Django security check for deployment
       run: python manage.py check --deploy
     - name: Run Django Tests
-      env:
-        DEBUG: 'True'
-        # TODO add ALLOWED_HOSTS for production
-        # TODO remove for production and add CORS_ORIGIN_WHITELIST instead
-        CORS_ORIGIN_ALLOW_ALL: 'True'
-        SECRET_KEY: ${{ secrets.SECRET_KEY }}
-        DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-        IMGHIPPO_API_KEY : ${{ secrets.IMGHIPPO_API_KEY }}
       run: python manage.py test --keepdb
