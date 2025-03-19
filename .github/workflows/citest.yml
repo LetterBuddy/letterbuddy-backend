@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.11"]
+        python-version: ["3.9"]
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -39,6 +39,16 @@ jobs:
         name: pylint-report-${{ matrix.python-version }}
         path: pylint-report-${{ matrix.python-version }}.txt
 
-    #  in the future - need to set up .env vars here first
-    # - name: Run Django Tests
-    #   run: python manage.py test
+    - name: Django security check for deployment
+      run: python manage.py check --deploy
+    - name: Run Django Tests
+      env:
+        DEBUG: 'True'
+        # TODO add ALLOWED_HOSTS for production
+        # TODO remove for production and add CORS_ORIGIN_WHITELIST instead
+        CORS_ORIGIN_ALLOW_ALL: 'True'
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        IMGHIPPO_API_KEY : ${{ secrets.IMGHIPPO_API_KEY }}
+      run: python manage.py test --keepdb

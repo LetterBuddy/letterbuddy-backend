@@ -30,6 +30,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY')
 
+JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY')
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG') == 'True'
 if DEBUG:
@@ -106,6 +108,7 @@ DATABASES = {
     }
 }
 
+
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 # will run when using validate_password 
@@ -123,8 +126,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
-
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
@@ -170,6 +171,6 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True, # the refresh token will be replaced each time a new one is requested
     'BLACKLIST_AFTER_ROTATION': True, # old refresh tokens will be blacklisted - can't be used
     'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY, # the key used to sign the tokens
+    'SIGNING_KEY': JWT_SECRET_KEY, # the key used to sign the tokens
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
