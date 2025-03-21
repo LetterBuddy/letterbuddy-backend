@@ -33,14 +33,18 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
-    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS').split(',')
+    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS').split(" ")
 
-# for production need to be False and add CORS_ORIGIN_WHITELIST
-CORS_ORIGIN_ALLOW_ALL = os.environ.get('CORS_ORIGIN_ALLOW_ALL') == 'True'
+# for production need to be False
+CORS_ORIGIN_ALLOW_ALL = os.environ.get('CORS_ORIGIN_ALLOW_ALL', 'False') == 'True'
+# the list of urls that are allowed to access the api
+if not CORS_ORIGIN_ALLOW_ALL:
+    CORS_ALLOWED_ORIGINS = os.environ.get('CORS_WHITELIST').split(" ")
+
 
 # Application definition
 INSTALLED_APPS = [
