@@ -37,7 +37,7 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
-    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS').split(" ")
+    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', " ").split(" ")
 
 # for production need to be False
 CORS_ORIGIN_ALLOW_ALL = os.environ.get('CORS_ORIGIN_ALLOW_ALL', 'False') == 'True'
