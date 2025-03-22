@@ -43,7 +43,7 @@ else:
 CORS_ORIGIN_ALLOW_ALL = os.environ.get('CORS_ORIGIN_ALLOW_ALL', 'False') == 'True'
 # the list of urls that are allowed to access the api
 if not CORS_ORIGIN_ALLOW_ALL:
-    CORS_ALLOWED_ORIGINS = os.environ.get('CORS_WHITELIST', " ").split(" ")
+    CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', " ").split(" ")
 
 
 # Application definition
