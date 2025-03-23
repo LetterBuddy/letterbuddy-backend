@@ -1,9 +1,9 @@
 from django.urls import path, include
 from . import views
-from .views import AdultRegisterView, LogoutView, ChildrenView
+from .views import AdultRegisterView, LogoutView, ChildrenView, LoginView
 
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView, TokenRefreshView,
+    TokenRefreshView,
     )
 from rest_framework import routers
 
@@ -14,7 +14,7 @@ router.register('child', views.ChildrenView, basename='child')
 urlpatterns = [
     path('', include(router.urls)),
     path('adult/', AdultRegisterView.as_view(), name='adult_register'),
-    path('login/', TokenObtainPairView.as_view(), name='login'),
+    path('login/', LoginView.as_view(), name='login'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('logout/', LogoutView.as_view(), name='logout'),
 ]

@@ -4,10 +4,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .permissions import IsAuthenticatedAdult, IsAuthenticatedChild
 from .models import AdultProfile, User
-
+    
 from .serializers import *
 
 
@@ -16,7 +17,10 @@ class AdultRegisterView(generics.CreateAPIView):
     permission_classes = (AllowAny,)
     serializer_class = AdultRegisterSerializer
 
-
+class LoginView(TokenObtainPairView):
+    serializer_class = LoginSerializer
+    
+    
 # unlike APIView, GenericAPIView provide serializer_class
 # which helps drf-spectacular to generate the schema
 class LogoutView(generics.GenericAPIView):

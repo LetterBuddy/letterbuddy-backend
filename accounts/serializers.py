@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth.password_validation import validate_password
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import *
 
 
@@ -104,3 +105,18 @@ class ChildSerializer(serializers.ModelSerializer):
 class LogoutSerializer(serializers.Serializer):
     refresh_token = serializers.CharField()
     
+class LoginSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        return super().get_token(user)
+    
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        user = self.user
+        data['role'] = user.role
+        data['first_name'] = user.first_name
+        data['last_name'] = user.last_name
+        return data
+    
+    
+        
