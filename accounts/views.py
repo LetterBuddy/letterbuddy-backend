@@ -31,7 +31,7 @@ class LogoutView(generics.GenericAPIView):
             # so that the user can no longer use it to get a new access token
             token = RefreshToken(refresh_token)
             token.blacklist()
-            # 205 - the UI should reset - and remove the access token from the local storage
+            # 205 - the UI should reset - and remove the access token
             return Response(status=status.HTTP_205_RESET_CONTENT)
         except Exception:
             return Response(status=status.HTTP_400_BAD_REQUEST)
