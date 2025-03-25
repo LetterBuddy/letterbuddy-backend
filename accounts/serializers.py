@@ -1,9 +1,18 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth.password_validation import validate_password
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from .models import *
 
+class TokenRefreshWithCookieSerializer(TokenRefreshSerializer):
+    refresh = None
+    def validate(self, attrs):
+        attrs['refresh'] = self.context['request'].COOKIES.get('refresh_token')
+        if (attrs['refresh']):
+            return super().validate(attrs)
+        else:
+            raise serializers.ValidationError('No refresh token cookie found')
+    
 
 # base user serializer - used for both adult and child registration
 class BaseUserRegisterSerializer(serializers.ModelSerializer):

@@ -1,16 +1,24 @@
 from django.shortcuts import render
 from rest_framework import generics, status, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .permissions import IsAuthenticatedAdult, IsAuthenticatedChild
 from .models import AdultProfile, User
     
 from .serializers import *
 
+class TokenRefreshWithCookie(TokenRefreshView):
+    serializer_class = TokenRefreshWithCookieSerializer
+    def finalize_response(self, request, response, *args, **kwargs):
+        if response.data.get('refresh'):
+            cookie_max_age = 60 * 60 * 24 * 7 # 7 days
+            response.set_cookie('refresh_token', response.data['refresh'], max_age=cookie_max_age, httponly=True, secure=True, samesite='Lax')
+            del response.data['refresh']
+        return super().finalize_response(request, response, *args, **kwargs)
+    
 
 class AdultRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -19,6 +27,13 @@ class AdultRegisterView(generics.CreateAPIView):
 
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer
+    
+    def finalize_response(self, request, response, *args, **kwargs):
+        if response.data.get('refresh'):
+            cookie_max_age = 60 * 60 * 24 * 7 # 7 days
+            response.set_cookie('refresh_token', response.data['refresh'], max_age=cookie_max_age, httponly=True, secure=True, samesite='Lax')
+            del response.data['refresh']
+        return super().finalize_response(request, response, *args, **kwargs)
     
     
 # unlike APIView, GenericAPIView provide serializer_class
@@ -61,3 +76,4 @@ class ChildrenView(viewsets.ModelViewSet):
     def get_queryset(self):
         adult = AdultProfile.objects.get(user=self.request.user)
         return ChildProfile.objects.filter(guiding_adult=adult)
+    

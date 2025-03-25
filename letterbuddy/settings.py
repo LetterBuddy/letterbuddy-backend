@@ -167,6 +167,7 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     'TITLE': 'LetterBuddy API',
     'SERVE_INCLUDE_SCHEMA': False,
+    # 'SERVE_AUTHENTICATION': ['rest_framework_simplejwt.authentication.'],
 }
 
 SIMPLE_JWT = {
@@ -177,4 +178,8 @@ SIMPLE_JWT = {
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': JWT_SECRET_KEY, # the key used to sign the tokens
     'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_COOKIE': 'refresh_token',
+    'AUTH_COOKIE_HTTP_ONLY': True,
 }
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
