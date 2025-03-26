@@ -159,7 +159,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated', # allow only users who are authenticated to access the endpoints(other than specific ones)
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'accounts.authentication.JWTAuthenticationWithCookie',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
@@ -178,7 +178,7 @@ SIMPLE_JWT = {
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': JWT_SECRET_KEY, # the key used to sign the tokens
     'AUTH_HEADER_TYPES': ('Bearer',),
-    'AUTH_COOKIE': 'refresh_token',
+    'AUTH_COOKIE': 'access_token',
     'AUTH_COOKIE_HTTP_ONLY': True,
 }
 CSRF_COOKIE_SECURE = True

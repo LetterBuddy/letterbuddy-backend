@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.shortcuts import render
 from rest_framework import generics, status, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -14,8 +15,7 @@ class TokenRefreshWithCookie(TokenRefreshView):
     serializer_class = TokenRefreshWithCookieSerializer
     def finalize_response(self, request, response, *args, **kwargs):
         if response.data.get('refresh'):
-            cookie_max_age = 60 * 60 * 24 * 7 # 7 days
-            response.set_cookie('refresh_token', response.data['refresh'], max_age=cookie_max_age, httponly=True, secure=True, samesite='Lax')
+            response.set_cookie('refresh_token', response.data['refresh'], expires=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'], httponly=True, secure=True, samesite='Lax')
             del response.data['refresh']
         return super().finalize_response(request, response, *args, **kwargs)
     
@@ -30,9 +30,10 @@ class LoginView(TokenObtainPairView):
     
     def finalize_response(self, request, response, *args, **kwargs):
         if response.data.get('refresh'):
-            cookie_max_age = 60 * 60 * 24 * 7 # 7 days
-            response.set_cookie('refresh_token', response.data['refresh'], max_age=cookie_max_age, httponly=True, secure=True, samesite='Lax')
+            response.set_cookie('access_token', response.data['access'], expires=settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'], httponly=True, secure=True, samesite='Strict')
+            response.set_cookie('refresh_token', response.data['refresh'], expires=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'], httponly=True, secure=True, samesite='Strict')
             del response.data['refresh']
+            del response.data['access']
         return super().finalize_response(request, response, *args, **kwargs)
     
     
