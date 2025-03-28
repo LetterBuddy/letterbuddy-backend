@@ -16,9 +16,8 @@ class ExerciseSubmission(models.Model):
     uploaded_image = models.ImageField()
     # could maybe use DecimalField instead
     score = models.FloatField()
-    # TODO maybe move ExerciseLevel and ExerciseLanguage here instead of ChildProfile
+    # TODO maybe move ExerciseLevel here instead of ChildProfile
     level = models.CharField(max_length=50, choices=ChildProfile.ExerciseLevel.choices, default='letters')
-    language = models.CharField(max_length=50, choices=ChildProfile.ExerciseLanguage.choices, default='en')
     category = models.CharField(max_length=50, choices=ExerciseCategory.choices)
     submission_date = models.DateTimeField(auto_now_add=True)
     time_taken = models.DurationField()
@@ -29,11 +28,10 @@ class ExerciseSubmission(models.Model):
 
 class Letter(models.Model):
     letter = models.CharField(max_length=1)
-    language = models.CharField(max_length=50, choices=ChildProfile.ExerciseLanguage.choices, default='en')
     avg_score = models.FloatField()
     count_apperances = models.IntegerField()
     def __str__(self):
-        return self.letter + " in " + self.language
+        return self.letter
 
 class Article(models.Model):
     title = models.CharField(max_length=200)

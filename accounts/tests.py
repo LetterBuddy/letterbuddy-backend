@@ -60,7 +60,7 @@ class UserTests(APITestCase):
     # test logout
     def test_logout(self):
         url = reverse("logout")
-        data = {"refresh_token": str(self.refresh)}
+        data = {"refresh": str(self.refresh)}
 
         self.client.force_authenticate(user=self.adult_user)
         response = self.client.post(url, data, format="json")

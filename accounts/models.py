@@ -5,9 +5,9 @@ from django.contrib.auth.models import AbstractUser
 class User(AbstractUser):
     # TODO check if email validation isn't case sensitive
     class Role(models.TextChoices):
-        ADMIN = "ADMIN", "Admin"
-        ADULT = "ADULT", "Adult"
-        CHILD = "CHILD", "Child"
+        ADMIN = "ADMIN"
+        ADULT = "ADULT"
+        CHILD = "CHILD"
     
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.ADMIN)
 
@@ -24,10 +24,6 @@ class AdultProfile(models.Model):
         return self.user.username
 
 class ChildProfile(models.Model):
-    # TODO an other option - define languages in settings, 
-    # or use django's built in languages
-    class ExerciseLanguage(models.TextChoices):
-        ENGLISH = "en", "English"
     class ExerciseLevel(models.TextChoices):
         LETTERS = "letters", "Letters"
         WORDS = "words", "Words"
@@ -35,7 +31,6 @@ class ChildProfile(models.Model):
         
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     guiding_adult = models.ForeignKey(AdultProfile, on_delete=models.CASCADE, related_name="children")
-    exercise_language = models.CharField(max_length=50, choices=ExerciseLanguage.choices, default='en')
     exercise_level = models.CharField(max_length=50, choices=ExerciseLevel.choices, default='letters')
     def __str__(self):
         return self.user.username

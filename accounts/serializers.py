@@ -61,15 +61,12 @@ class AdultRegisterSerializer(BaseUserRegisterSerializer):
 
 
 class ChildRegisterSerializer(BaseUserRegisterSerializer):
-    exercise_language = serializers.ChoiceField(
-        choices=ChildProfile.ExerciseLanguage.choices, default='en'
-    )
     exercise_level = serializers.ChoiceField(
         choices=ChildProfile.ExerciseLevel.choices, default='letters'
     )
     
     class Meta(BaseUserRegisterSerializer.Meta):
-        fields = BaseUserRegisterSerializer.Meta.fields + ('exercise_language', 'exercise_level',)
+        fields = BaseUserRegisterSerializer.Meta.fields + ('exercise_level',)
 
     def create(self, validated_data):
         user = self.create_user(validated_data, User.Role.CHILD)
@@ -78,7 +75,6 @@ class ChildRegisterSerializer(BaseUserRegisterSerializer):
         child = ChildProfile.objects.create(
             user=user,
             guiding_adult=guiding_adult,
-            exercise_language=validated_data['exercise_language'],
             exercise_level=validated_data['exercise_level']
         )
         child.save()
@@ -99,7 +95,7 @@ class ChildSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     class Meta:
         model = ChildProfile
-        fields = ('user', 'exercise_language', 'exercise_level')
+        fields = ('user', 'exercise_level')
 
 
 class LogoutSerializer(serializers.Serializer):
