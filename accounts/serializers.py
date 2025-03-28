@@ -103,7 +103,7 @@ class ChildSerializer(serializers.ModelSerializer):
 
 
 class LogoutSerializer(serializers.Serializer):
-    refresh_token = serializers.CharField()
+    refresh = serializers.CharField()
     
 class LoginSerializer(TokenObtainPairSerializer):
     @classmethod

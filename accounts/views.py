@@ -29,7 +29,7 @@ class LogoutView(generics.GenericAPIView):
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True) 
-        refresh_token = serializer.validated_data["refresh_token"]
+        refresh_token = serializer.validated_data["refresh"]
         try:
             # blacklist the refresh token
             # so that the user can no longer use it to get a new access token

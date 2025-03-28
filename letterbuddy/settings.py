@@ -172,7 +172,9 @@ SPECTACULAR_SETTINGS = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7), 
-    'ROTATE_REFRESH_TOKENS': True, # the refresh token will be replaced each time a new one is requested
+    # the refresh token will be rotated each time the access token is refreshed
+    # it will keep its original remaining lifetime - almost like renaming it
+    'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True, # old refresh tokens will be blacklisted - can't be used
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': JWT_SECRET_KEY, # the key used to sign the tokens
