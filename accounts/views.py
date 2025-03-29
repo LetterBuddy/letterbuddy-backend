@@ -53,6 +53,7 @@ class ChildrenView(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         # create - for registering a child (POST)
+        # TODO create all the letter models for the child
         if self.action == 'create':
             return ChildRegisterSerializer
         return ChildSerializer

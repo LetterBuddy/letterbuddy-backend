@@ -1,34 +1,41 @@
 from django.db import models
-from accounts.models import ChildProfile, User
+from django.core.validators import MinValueValidator, MaxValueValidator
+from accounts.models import ChildProfile
 
-class ExerciseSubmission(models.Model):
+# TODO we are losing the score of each letter in the exercise(it is not refrencing it in letter model)
+class Exercise(models.Model):
     # TODO add more according to wordnet categories
+    # TODO maybe move them to a separate model, than could more easily add and retrieve them
     class ExerciseCategory(models.TextChoices):
-        VEHICLE = "vehicle", "Vehicle"
-        ANIMAL = "animal", "Animal"
-
+        VEHICLE = "vehicle"
+        ANIMAL = "animal"
+        COLOR = "color"
+        TOY = "toy"
 
     child = models.ForeignKey(ChildProfile ,on_delete=models.CASCADE)
     requested_text = models.CharField()
     submitted_text = models.CharField()
 
     # TODO check about ImageField instead of IMGhippo, if not needed remember to remove pillow from requirements
-    uploaded_image = models.ImageField()
-    # could maybe use DecimalField instead
-    score = models.FloatField()
+    submitted_image = models.ImageField(null=True, blank=True)
+    
+    score = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
+
     # TODO maybe move ExerciseLevel here instead of ChildProfile
     level = models.CharField(max_length=50, choices=ChildProfile.ExerciseLevel.choices, default='letters')
     category = models.CharField(max_length=50, choices=ExerciseCategory.choices)
-    submission_date = models.DateTimeField(auto_now_add=True)
-    time_taken = models.DurationField()
+    generated_date = models.DateTimeField(auto_now_add=True)
+    submission_date = models.DateTimeField(null=True, blank=True)
+    # now time taken is derived from generated_date and submission_date
+    #time_taken = models.DurationField()
 
     def __str__(self):
-        return self.child.user.username + " requested to write " + self.requested_text + " and wrote " + self.submitted_text + " with a score of " + self.score
+        return self.child.user.username + " level:" + self.level + " category:" + self.category + " generated at:" + str(self.generated_date)
 
 
 class Letter(models.Model):
     letter = models.CharField(max_length=1)
-    avg_score = models.FloatField()
+    avg_score = models.FloatField(validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
     count_apperances = models.IntegerField()
     def __str__(self):
         return self.letter
