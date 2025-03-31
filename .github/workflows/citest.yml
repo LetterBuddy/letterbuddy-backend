@@ -41,7 +41,7 @@ jobs:
         pip install pylint
         pip install -r requirements.txt
     - name: Analysing the code with pylint and save report
-      run: pylint $(git ls-files '*.py') | tee pylint-report-${{ matrix.python-version }}.txt || true
+      run: pylint $(git ls-files '*.py' | grep -v 'migrations') | tee pylint-report-${{ matrix.python-version }}.txt || true
     
     - name: Upload pylint report as an artifact
       uses: actions/upload-artifact@v4
