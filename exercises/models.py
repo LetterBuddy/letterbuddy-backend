@@ -24,10 +24,10 @@ class Exercise(models.Model):
     # TODO maybe move ExerciseLevel here instead of ChildProfile
     level = models.CharField(max_length=50, choices=ChildProfile.ExerciseLevel.choices, default='letters')
     category = models.CharField(max_length=50, choices=ExerciseCategory.choices)
+    # TODO remove this field
     generated_date = models.DateTimeField(auto_now_add=True)
+
     submission_date = models.DateTimeField(null=True, blank=True)
-    # now time taken is derived from generated_date and submission_date
-    #time_taken = models.DurationField()
 
     def __str__(self):
         return self.child.user.username + " level:" + self.level + " category:" + self.category + " generated at:" + str(self.generated_date)

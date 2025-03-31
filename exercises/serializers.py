@@ -10,12 +10,8 @@ class ExerciseGenerationSerializer(serializers.ModelSerializer):
         read_only_fields = ('requested_text', 'level', 'category', 'child')
 
 
-
 class ArticleSerializer(serializers.ModelSerializer):
     class Meta: 
         model = Article
         fields = '__all__'
 
-
-        
-    

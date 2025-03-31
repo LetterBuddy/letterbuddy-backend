@@ -1,13 +1,12 @@
-from django.shortcuts import render
+import random
+from nltk.corpus import wordnet
 from rest_framework import generics, status
 from rest_framework.response import Response
-from nltk.corpus import wordnet
-import random
 
-from .serializers import *
-from .models import *
 from accounts.permissions import IsAuthenticatedAdult, IsAuthenticatedChild
 from accounts.models import ChildProfile
+from .serializers import *
+from .models import *
 
 
 class ExerciseGenerationView(generics.GenericAPIView):
@@ -38,15 +37,8 @@ class ExerciseGenerationView(generics.GenericAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
         
 
-
 class ArticlesView(generics.ListAPIView):
     serializer_class = ArticleSerializer
     permission_classes = (IsAuthenticatedAdult, )
     queryset = Article.objects.all()
-
-    
-
-
-
-
 

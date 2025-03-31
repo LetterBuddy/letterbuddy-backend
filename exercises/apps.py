@@ -1,5 +1,5 @@
-from django.apps import AppConfig
 import nltk
+from django.apps import AppConfig
 
 # runs only when the server starts(twice if --noreload is not used in runserver, if used - only once)
 class ExercisesConfig(AppConfig):

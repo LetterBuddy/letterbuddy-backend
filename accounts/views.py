@@ -1,16 +1,13 @@
-from django.shortcuts import render
 from rest_framework import generics, status, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .permissions import IsAuthenticatedAdult, IsAuthenticatedChild
-from .models import AdultProfile, User
-    
-from .serializers import *
+from .permissions import IsAuthenticatedAdult
+from .serializers import AdultRegisterSerializer, LoginSerializer, LogoutSerializer, ChildRegisterSerializer, ChildSerializer
 
+from .models import *
 
 class AdultRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
