@@ -168,6 +168,9 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     'TITLE': 'LetterBuddy API',
     'SERVE_INCLUDE_SCHEMA': False,
+     # to allow image upload in the request body
+     # to send the image in the request body need to choose multipart/form-data content type
+    'COMPONENT_SPLIT_REQUEST': True
 }
 
 SIMPLE_JWT = {

@@ -17,7 +17,6 @@ class AdultProfile(models.Model):
     # due to only having one user model this extends
     # with specific fields for the adult
     # currently - no difference between the regular user model
-    # TODO think if the user should be pk or an id field
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     def __str__(self):
         return self.user.username

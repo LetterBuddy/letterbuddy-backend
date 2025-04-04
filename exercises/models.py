@@ -2,7 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from accounts.models import ChildProfile
 
-# TODO we are losing the score of each letter in the exercise(it is not refrencing it in letter model)
+# TODO we are losing the score of each letter in the exercise(it is not referencing it in letter model)
 class Exercise(models.Model):
     # TODO add more according to wordnet categories
     # TODO maybe move them to a separate model, than could more easily add and retrieve them
@@ -32,11 +32,10 @@ class Exercise(models.Model):
     def __str__(self):
         return self.child.user.username + " level:" + self.level + " category:" + self.category + " generated at:" + str(self.generated_date)
 
-
 class Letter(models.Model):
     letter = models.CharField(max_length=1)
     avg_score = models.FloatField(validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
-    count_apperances = models.IntegerField()
+    count_appearances = models.IntegerField()
     def __str__(self):
         return self.letter
 
