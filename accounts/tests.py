@@ -68,7 +68,7 @@ class UserTests(APITestCase):
         # that adult has only one child
         self.assertEqual(len(response.data), 1)
         # that child is the one we created in setUp named "child"
-        self.assertEqual(response.data[0]["user"]["username"], "child")
+        self.assertEqual(response.data[0]["username"], "child")
 
     # test permissions - a child cannot its own list of children
     def test_child_cannot_access_children_list(self):

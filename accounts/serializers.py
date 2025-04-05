@@ -8,7 +8,8 @@ from .models import *
 # base user serializer - used for both adult and child registration
 class BaseUserRegisterSerializer(serializers.ModelSerializer):
     # specify the fields in the request so there is validation
-
+    id = serializers.IntegerField(read_only=True)
+    
     username = serializers.CharField(
         required=True,
         validators=[UniqueValidator(queryset=User.objects.all())])
@@ -21,7 +22,7 @@ class BaseUserRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         # fields that will be shown in the response and in the request
-        fields = ('username', 'password', 'first_name', 'last_name')
+        fields = ('id', 'username', 'password', 'first_name', 'last_name')
         
         # these fields aren't required in the model, but are required in this request
         # extra_kwargs helps to make these small changes to the fields
@@ -96,6 +97,15 @@ class ChildSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChildProfile
         fields = ('user', 'exercise_level')
+        
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        user = representation.pop('user')
+        
+        for key, value in user.items():
+            representation[key] = value
+        
+        return representation
 
 
 class LogoutSerializer(serializers.Serializer):
