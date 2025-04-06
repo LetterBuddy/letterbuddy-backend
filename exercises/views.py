@@ -1,5 +1,6 @@
 from django.utils import timezone
 import random
+import string
 from nltk.corpus import wordnet
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -23,8 +24,9 @@ class ExerciseGenerationView(generics.GenericAPIView):
             requested_text = None
             category = None
             if current_child_level == ChildProfile.ExerciseLevel.LETTERS:
-                # TODO generate a random letter from the alphabet
-                requested_text = "aaaaaa"
+                # choose a random letter from the alphabet and duplicate it
+                requested_text = random.choice(string.ascii_letters)
+                requested_text = requested_text * random.randint(3, 8)
 
             else:
                 category = random.choice([choice[0] for choice in Exercise.ExerciseCategory.choices])
@@ -34,12 +36,13 @@ class ExerciseGenerationView(generics.GenericAPIView):
                     hyponyms = []
                     for synset in synsets:
                         hyponyms.extend(synset.hyponyms())
-                    random_hyponym = random.choice(hyponyms)
-                    requested_text = random.choice(random_hyponym.lemmas()).name()
+                    while True:
+                        random_hyponym = random.choice(hyponyms)
+                        requested_text = random.choice(random_hyponym.lemmas()).name()
+                        print(requested_text)
+                        if "_" not in requested_text and " " not in requested_text and "-" not in requested_text:
+                            break
 
-            # before generating a new one - delete any previous generated that weren't submitted
-            # since there is no way to go back to them
-            # Exercise.objects.filter(child=current_child, submission_date=None).delete()
             exercise = Exercise.objects.create(child=current_child, requested_text=requested_text, level=current_child_level, category=category)
         serializer = ExerciseGenerationSerializer(exercise)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -23,7 +23,7 @@ class Exercise(models.Model):
 
     # TODO maybe move ExerciseLevel here instead of ChildProfile
     level = models.CharField(max_length=50, choices=ChildProfile.ExerciseLevel.choices, default='letters')
-    category = models.CharField(max_length=50, choices=ExerciseCategory.choices)
+    category = models.CharField(max_length=50, choices=ExerciseCategory.choices, null=True, blank=True)
     # TODO remove this field
     generated_date = models.DateTimeField(auto_now_add=True)
 
