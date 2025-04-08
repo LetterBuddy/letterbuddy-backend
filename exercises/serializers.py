@@ -5,10 +5,10 @@ from .models import *
 class ExerciseGenerationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exercise
-        fields = ('child', 'requested_text', 'level', 'category')
+        fields = ('id', 'requested_text', 'level', 'category')
         # the exercise object will be created with these fields
         # but they are not required to be passed in the request
-        read_only_fields = ('child', 'requested_text', 'level', 'category')
+        read_only_fields = ('id', 'requested_text', 'level', 'category')
 
 class ExerciseSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
