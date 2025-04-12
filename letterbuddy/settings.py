@@ -184,3 +184,14 @@ SIMPLE_JWT = {
     'SIGNING_KEY': JWT_SECRET_KEY, # the key used to sign the tokens
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+# for the image upload
+# will be saved in a media folder in cloudinary
+MEDIA_URL = '/media/'
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+cloudfinaryUrl = urlparse(os.getenv("CLOUDINARY_URL"))
+CLOUDFINARY_STORAGE = {
+    'CLOUD_NAME': cloudfinaryUrl.hostname,
+    'API_KEY': cloudfinaryUrl.username,
+    'API_SECRET': cloudfinaryUrl.password,
+}
