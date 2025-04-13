@@ -1,12 +1,13 @@
-from django.utils import timezone
 import random
 import string
 from nltk.corpus import wordnet
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.response import Response
 
 from accounts.permissions import IsAuthenticatedAdult, IsAuthenticatedChild
-from accounts.models import ChildProfile
+from accounts.models import ChildProfile, AdultProfile
 from .serializers import *
 from .models import *
 
@@ -51,7 +52,7 @@ class ExerciseGenerationView(generics.GenericAPIView):
 class ExerciseSubmissionView(generics.GenericAPIView):
     # queryset will tell get_object which model to look for
     queryset = Exercise.objects.all()
-    serializer_class = ExerciseSubmissionSerializer
+    serializer_class = ExerciseSubmitSerializer
     permission_classes = (IsAuthenticatedChild, )
     
     def put(self, request, pk):
@@ -69,6 +70,40 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         # TODO calculate the score and submitted_text based on OCR's validation
         exercise.save()
         serializer = ExerciseSubmissionSerializer(exercise)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ExerciseRetrieveView(generics.RetrieveAPIView):
+    serializer_class = ExerciseSerializer
+    permission_classes = (IsAuthenticatedAdult, )
+    queryset = Exercise.objects.all()
+    
+    def get(self, request, pk):
+        # get the exercise object by its id(provided in the url - its pk - primary key)
+        exercise = self.get_object()
+        # check if the exercise belongs to a child of the current adult if not return 403 forbidden
+        current_adult = AdultProfile.objects.get(user=request.user)
+        if exercise.child.guiding_adult != current_adult:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        serializer = self.get_serializer(exercise)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class SubmissionListOfChildView(generics.ListAPIView):
+    serializer_class = SubmissionListSerializer
+    permission_classes = (IsAuthenticatedAdult, )
+
+    def get(self, request, *args, **kwargs):
+        # get the child object by its id(provided in the url - its pk - primary key)
+        # since ChildProfile isn't the queryset of the view, we need to get it manually
+        # also ListAPIView doesn't have a get_object method
+        child = get_object_or_404(ChildProfile, pk=self.kwargs['pk'])
+        # check if the child belongs to the current adult if not return 403 forbidden
+        current_adult = AdultProfile.objects.get(user=self.request.user)
+        if child.guiding_adult != current_adult:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        # return all the exercises of the child that were not submitted
+        exercises = Exercise.objects.filter(child=child).exclude(submission_date=None)
+        serializer = self.get_serializer(exercises, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ArticlesView(generics.ListAPIView):
