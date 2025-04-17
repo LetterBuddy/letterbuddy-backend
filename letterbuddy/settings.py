@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 from urllib.parse import urlparse
@@ -45,6 +46,8 @@ CORS_ORIGIN_ALLOW_ALL = os.environ.get('CORS_ORIGIN_ALLOW_ALL', 'False') == 'Tru
 if not CORS_ORIGIN_ALLOW_ALL:
     CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', " ").split(" ")
 
+# tells if we are running python manage.py test
+TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
 
 # Application definition
 INSTALLED_APPS = [
@@ -163,7 +166,23 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # throttle prevents the user from sending too many requests in a short time
+    # anon - unauthenticated users
+    # user - authenticated users
+    # if they pass the limit - they will get 429 error - too many requests
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '15/minute',
+        'user': '30/minute'
+    },
 }
+
+# prevent the throttling for testing
+if TESTING:
+  del REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'LetterBuddy API',
