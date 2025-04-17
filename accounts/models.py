@@ -23,9 +23,9 @@ class AdultProfile(models.Model):
 
 class ChildProfile(models.Model):
     class ExerciseLevel(models.TextChoices):
-        LETTERS = "letters", "Letters"
-        WORDS = "words", "Words"
-        CATEGORY = "category", "Category"
+        LETTERS = "letters"
+        WORDS = "words"
+        CATEGORY = "category"
         
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     guiding_adult = models.ForeignKey(AdultProfile, on_delete=models.CASCADE, related_name="children")
