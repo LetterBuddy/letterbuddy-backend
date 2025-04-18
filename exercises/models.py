@@ -16,7 +16,7 @@ class Exercise(models.Model):
     requested_text = models.CharField()
     submitted_text = models.CharField()
 
-    # TODO check about ImageField instead of IMGhippo, if not needed remember to remove pillow from requirements
+
     submitted_image = models.ImageField(null=True, blank=True)
     
     score = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])

@@ -1,6 +1,9 @@
 import random
 import string
 from nltk.corpus import wordnet
+from paddleocr import PaddleOCR
+from PIL import Image
+import numpy as np
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -48,7 +51,7 @@ class ExerciseGenerationView(generics.GenericAPIView):
         serializer = ExerciseGenerationSerializer(exercise)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-
+# TODO save each letter score in the db in some way and update the child level
 class ExerciseSubmissionView(generics.GenericAPIView):
     # queryset will tell get_object which model to look for
     queryset = Exercise.objects.all()
@@ -67,7 +70,42 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         exercise.submitted_image = submitted_image
         # TODO verify if automatically gets set to settings.py timezone
         exercise.submission_date = timezone.now()
-        # TODO calculate the score and submitted_text based on OCR's validation
+        # since the image is sent as a file, we need to open it and convert it to a numpy array
+        # then we can use PaddleOCR to extract the text from the image
+        img = Image.open(submitted_image)
+        img_np = np.array(img)
+        
+        # TODO load the model we want 
+        # TODO maybe move the model loading so it won't load it every time
+        ocr = PaddleOCR(use_angle_cls=True, lang='en')
+        results = ocr.ocr(img_np, cls=True)
+        exercise.submitted_text = ""
+        exercise.score = 0.0
+        if results[0] is not None:
+            print('\nDetected characters and their confidence score: ')
+            for word_info in results[0]:
+                # go over each letter expected
+                # if the letter has been predicted correctly - add its confidence to the score
+                # TODO only fitted for letters and words with requested_text - category needs to be handled differently
+                # TODO what to do when more letters are detected than expected?
+                # TODO what to do when the letters are detected in a different order than expected?
+                for i in range(len(exercise.requested_text)):
+                    char = ''
+                    conf = 0.0
+                    if i < len(word_info[1]):
+                        char = word_info[1][i][0]
+                        exercise.submitted_text += char
+                        if exercise.requested_text[i] == char:
+                            conf = results[1][i]
+                            exercise.score += conf
+                    print(f"Expected: {exercise.requested_text[i]}, Detected: {char}, with Confidence: {conf}")
+        
+        # average the score
+        exercise.score = exercise.score / len(exercise.requested_text) if len(exercise.requested_text) > 0 else 0.0
+        
+        # Image.open causes the file pointer to be at the end of the file so we need to get it back to the beginning
+        submitted_image.seek(0)
+
         exercise.save()
         serializer = ExerciseSubmitSerializer(exercise)
         return Response(serializer.data, status=status.HTTP_200_OK)
