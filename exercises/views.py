@@ -69,7 +69,7 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         exercise.submission_date = timezone.now()
         # TODO calculate the score and submitted_text based on OCR's validation
         exercise.save()
-        serializer = ExerciseSubmissionSerializer(exercise)
+        serializer = ExerciseSubmitSerializer(exercise)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
