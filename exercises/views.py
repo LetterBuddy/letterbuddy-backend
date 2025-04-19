@@ -90,20 +90,14 @@ class ExerciseRetrieveView(generics.RetrieveAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ExerciseDeleteView(generics.DestroyAPIView):
-    serializer_class = ExerciseSerializer
     permission_classes = (IsAuthenticatedChild, )
     queryset = Exercise.objects.all()
-
+    
     def get_object(self):
         obj = super().get_object()
         if obj.child.user != self.request.user or obj.submission_date is not None:
             raise PermissionDenied("You are not allowed to delete this exercise.")
         return obj
-    
-    def delete(self, request, *args, **kwargs):
-        exercise = self.get_object()
-        self.perform_destroy(exercise)
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class SubmissionListOfChildView(generics.ListAPIView):
     serializer_class = SubmissionListSerializer
