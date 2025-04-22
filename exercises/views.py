@@ -2,6 +2,7 @@ import random
 import string
 from nltk.corpus import wordnet
 from paddleocr import PaddleOCR
+from gradio_client import Client, handle_file 
 from PIL import Image
 import numpy as np
 from django.shortcuts import get_object_or_404
@@ -64,6 +65,9 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         # check if the exercise belongs to the current child if not return 403 forbidden
         if exercise.child.user != request.user:
             return Response(status=status.HTTP_403_FORBIDDEN)
+        # check if the exercise is already submitted - if so return 403 forbidden
+        if exercise.submission_date is not None:
+            return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True) 
         submitted_image = serializer.validated_data["submitted_image"]
@@ -74,13 +78,27 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         # then we can use PaddleOCR to extract the text from the image
         img = Image.open(submitted_image)
         img_np = np.array(img)
-        
+        # Image.open causes the file pointer to be at the end of the file so we need to get it back to the beginning
+        submitted_image.seek(0)
+        exercise.save()
+        exercise.submitted_text = ""
+        exercise.score = 0.0
+        qwen2_guess = ""
+        try:
+            client = Client("MaziyarPanahi/Qwen2-VL-2B")
+            qwen2_guess = client.predict(
+                    media_input=handle_file(exercise.submitted_image.url),
+                    text_input="just write what you recognized without any more words",
+                    api_name="/qwen_inference",
+            )
+            print(qwen2_guess)
+        except Exception as e:
+            print("Failed to recognize the text using Qwen2-VL-2B")
+            print(e)
         # TODO load the model we want 
         # TODO maybe move the model loading so it won't load it every time
         ocr = PaddleOCR(use_angle_cls=True, lang='en')
         results = ocr.ocr(img_np, cls=True)
-        exercise.submitted_text = ""
-        exercise.score = 0.0
         if results[0] is not None:
             print('\nDetected characters and their confidence score: ')
             for word_info in results[0]:
@@ -103,9 +121,6 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         # average the score
         exercise.score = exercise.score / len(exercise.requested_text) if len(exercise.requested_text) > 0 else 0.0
         
-        # Image.open causes the file pointer to be at the end of the file so we need to get it back to the beginning
-        submitted_image.seek(0)
-
         exercise.save()
         serializer = ExerciseSubmitSerializer(exercise)
         return Response(serializer.data, status=status.HTTP_200_OK)
