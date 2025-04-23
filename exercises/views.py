@@ -68,6 +68,7 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         exercise.submitted_image = submitted_image
         # TODO verify if automatically gets set to settings.py timezone
         exercise.submission_date = timezone.now()
+        exercise.score = 0.0
         # TODO calculate the score and submitted_text based on OCR's validation
         exercise.save()
         serializer = ExerciseSubmitSerializer(exercise)
