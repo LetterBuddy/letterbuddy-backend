@@ -4,11 +4,13 @@ from nltk.corpus import wordnet
 from paddleocr import PaddleOCR
 from PIL import Image
 import numpy as np
+from groq import Groq
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.response import Response
 
+from django.conf import settings
 from accounts.permissions import IsAuthenticatedAdult, IsAuthenticatedChild
 from accounts.models import ChildProfile, AdultProfile
 from .serializers import *
@@ -84,12 +86,42 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         exercise.score = 0.0
         VLM_guess = ""
         try:
-            # VLM_guess = MODEL
-            print(VLM_guess)
+            client = Groq(api_key=settings.GROQ_API_KEY)
+            VLM_answer = client.chat.completions.create(
+                model="meta-llama/llama-4-scout-17b-16e-instruct",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                # adding "I have requested a child to write the following text: " + exercise.requested_text
+                                # made the model to guess what he requested instead of the text in the image
+                                "text": "Could you only write(without any more words, separate between them with a new line without numbers): 1. the text in the image, 2. analyze the handwriting for his parent"
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": exercise.submitted_image.url
+                                }
+                            }
+                        ]
+                    }
+                ],
+                temperature=0.5,
+                max_tokens=200,
+                n=1,
+                stop=None
+            )
+            VLM_answer_parts = VLM_answer.choices[0].message.content.split("\n")
+            for i in range(len(VLM_answer_parts)):
+                print(f"VLM answer part {i}: {VLM_answer_parts[i]}")
+            VLM_guess = VLM_answer_parts[0]
+            #TODO get the analysis of the handwriting and save it in the exercise object
+            print(VLM_answer.choices[0].message)
         except Exception as e:
             print("Failed to recognize the text using the VLM model")
             print(e)
-        # TODO load the model we want 
         # TODO maybe move the model loading so it won't load it every time
         ocr = PaddleOCR(use_angle_cls=True, lang='en')
         results = ocr.ocr(img_np, cls=True)
@@ -126,6 +158,7 @@ class ExerciseSubmissionView(generics.GenericAPIView):
                         char_conf += results[1][i]
                     else:
                         char_conf -= results[1][i]
+                        char_conf = max(char_conf, 0.0) # if the confidence is negative - set it to 0
                 # avg of the two models confidence(if both guessed the same letter if not - 0.5)
                 char_conf = char_conf / 2
                 # the correct character was detected by one of the models - add its confidence to the score
