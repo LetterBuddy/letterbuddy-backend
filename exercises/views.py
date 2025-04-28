@@ -46,8 +46,11 @@ class ExerciseGenerationView(generics.GenericAPIView):
                             break
 
             exercise = Exercise.objects.create(child=current_child, requested_text=requested_text, level=current_child_level, category=category)
+            response_status = status.HTTP_201_CREATED
+        else:
+            response_status = status.HTTP_200_OK
         serializer = ExerciseGenerationSerializer(exercise)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=response_status)
 
 
 class ExerciseSubmissionView(generics.GenericAPIView):
