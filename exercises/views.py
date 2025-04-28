@@ -97,7 +97,7 @@ class ExerciseSubmissionView(generics.GenericAPIView):
                                 "type": "text",
                                 # adding "I have requested a child to write the following text: " + exercise.requested_text
                                 # made the model to guess what he requested instead of the text in the image
-                                "text": "Could you only write(without any more words, separate between them with a new line without numbers): 1. the text in the image, 2. analyze the handwriting for his parent"
+                                "text": "write(without any more words, separate between them with a new line without numbers): 1. the text in the image - exactly what you recognize(there can be words that don't exists) in one line, 2. analyze the handwriting for his parent(talk about Letter Foundation, Letter spacing and size, Line quality, slant and cursive joinings, and any other relevant details)"
                             },
                             {
                                 "type": "image_url",
