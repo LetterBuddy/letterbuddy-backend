@@ -16,6 +16,27 @@ from accounts.models import ChildProfile, AdultProfile
 from .serializers import *
 from .models import *
 
+groq_client = None
+paddleOcr = None
+
+def initialize_models():
+    # if any of the models is not initialized - try to initialize them
+    global groq_client, paddleOcr
+    if groq_client is None:
+        try:
+            groq_client = Groq(api_key=settings.GROQ_API_KEY)
+        except Exception as e:
+            print("Failed to initialize the Groq client")
+            print(e)
+    if paddleOcr is None:
+        try:
+            paddleOcr = PaddleOCR(use_angle_cls=True, lang='en')
+        except Exception as e:
+            print("Failed to initialize the PaddleOCR client")
+            print(e)
+
+# initialize the models when the server starts
+initialize_models()
 
 class ExerciseGenerationView(generics.GenericAPIView):
     serializer_class = ExerciseGenerationSerializer
@@ -85,46 +106,48 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         exercise.submitted_text = ""
         exercise.score = 0.0
         VLM_guess = ""
-        try:
-            client = Groq(api_key=settings.GROQ_API_KEY)
-            VLM_answer = client.chat.completions.create(
-                model="meta-llama/llama-4-scout-17b-16e-instruct",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                # adding "I have requested a child to write the following text: " + exercise.requested_text
-                                # made the model to guess what he requested instead of the text in the image
-                                "text": "write(without any more words, separate between them with a new line without numbers): 1. the text in the image - exactly what you recognize(there can be words that don't exists) in one line, 2. analyze the handwriting for his parent(talk about Letter Foundation, Letter spacing and size, Line quality, slant and cursive joinings, and any other relevant details)"
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": exercise.submitted_image.url
+        # if any of the models is not initialized - try to initialize them again
+        if groq_client is None or paddleOcr is None:
+            initialize_models()
+        if groq_client:
+            try:
+                VLM_answer = groq_client.chat.completions.create(
+                    model="meta-llama/llama-4-scout-17b-16e-instruct",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    # adding "I have requested a child to write the following text: " + exercise.requested_text
+                                    # made the model to guess what he requested instead of the text in the image
+                                    "text": "write(without any more words, separate between them with a new line without numbers): 1. the text in the image - exactly what you recognize(there can be words that don't exists) in one line, 2. analyze the handwriting for his parent(talk about Letter Foundation, Letter spacing and size, Line quality, slant and cursive joinings, and any other relevant details)"
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": exercise.submitted_image.url
+                                    }
                                 }
-                            }
-                        ]
-                    }
-                ],
-                temperature=0.5,
-                max_tokens=200,
-                n=1,
-                stop=None
-            )
-            VLM_answer_parts = VLM_answer.choices[0].message.content.split("\n")
-            for i in range(len(VLM_answer_parts)):
-                print(f"VLM answer part {i}: {VLM_answer_parts[i]}")
-            VLM_guess = VLM_answer_parts[0]
-            # the feedback is in the rest of the answer
-            exercise.feedback = "\n".join(VLM_answer_parts[1:]).strip()
-        except Exception as e:
-            print("Failed to recognize the text using the VLM model")
-            print(e)
-        # TODO maybe move the model loading so it won't load it every time
-        paddleOcr = PaddleOCR(use_angle_cls=True, lang='en')
-        results = paddleOcr.ocr(img_np, cls=True)
+                            ]
+                        }
+                    ],
+                    temperature=0.5,
+                    max_tokens=200,
+                    n=1,
+                    stop=None
+                )
+                VLM_answer_parts = VLM_answer.choices[0].message.content.split("\n")
+                for i in range(len(VLM_answer_parts)):
+                    print(f"VLM answer part {i}: {VLM_answer_parts[i]}")
+                VLM_guess = VLM_answer_parts[0]
+                # the feedback is in the rest of the answer
+                exercise.feedback = "\n".join(VLM_answer_parts[1:]).strip()
+            except Exception as e:
+                print("Failed to recognize the text using the VLM model")
+                print(e)
+        if paddleOcr is not None:
+            results = paddleOcr.ocr(img_np, cls=True)
         if results[0] is not None or VLM_guess != "":
             print('\nDetected characters and their confidence score: ')
             # go over each letter expected
