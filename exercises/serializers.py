@@ -13,8 +13,8 @@ class ExerciseGenerationSerializer(serializers.ModelSerializer):
 class ExerciseSubmitSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exercise
-        fields = ('submitted_text', 'submitted_image', 'submission_date', 'score')
-        read_only_fields = ('submitted_text', 'submission_date', 'score',)
+        fields = ('submitted_text', 'submitted_image', 'submission_date', 'score', 'feedback')
+        read_only_fields = ('submitted_text', 'submission_date', 'score', 'feedback')
 
 class ExerciseSerializer(serializers.ModelSerializer):
     class Meta:

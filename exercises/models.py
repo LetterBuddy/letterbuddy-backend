@@ -29,6 +29,8 @@ class Exercise(models.Model):
 
     submission_date = models.DateTimeField(null=True, blank=True)
 
+    feedback = models.TextField(null=True, blank=True)
+    
     def __str__(self):
         return self.child.user.username + " level:" + self.level + " category:" + self.category + " generated at:" + str(self.generated_date)
 

@@ -117,14 +117,14 @@ class ExerciseSubmissionView(generics.GenericAPIView):
             for i in range(len(VLM_answer_parts)):
                 print(f"VLM answer part {i}: {VLM_answer_parts[i]}")
             VLM_guess = VLM_answer_parts[0]
-            #TODO get the analysis of the handwriting and save it in the exercise object
-            print(VLM_answer.choices[0].message)
+            # the feedback is in the rest of the answer
+            exercise.feedback = "\n".join(VLM_answer_parts[1:]).strip()
         except Exception as e:
             print("Failed to recognize the text using the VLM model")
             print(e)
         # TODO maybe move the model loading so it won't load it every time
-        ocr = PaddleOCR(use_angle_cls=True, lang='en')
-        results = ocr.ocr(img_np, cls=True)
+        paddleOcr = PaddleOCR(use_angle_cls=True, lang='en')
+        results = paddleOcr.ocr(img_np, cls=True)
         if results[0] is not None or VLM_guess != "":
             print('\nDetected characters and their confidence score: ')
             # go over each letter expected
