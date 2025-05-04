@@ -51,6 +51,8 @@ TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
 
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
 
+AZURE_TOKEN = os.environ.get('AZURE_TOKEN')
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',

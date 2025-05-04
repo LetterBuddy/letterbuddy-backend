@@ -5,6 +5,10 @@ from paddleocr import PaddleOCR
 from PIL import Image
 import numpy as np
 from groq import Groq
+
+from azure.ai.inference import ChatCompletionsClient
+from azure.core.credentials import AzureKeyCredential
+
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -16,12 +20,22 @@ from accounts.models import ChildProfile, AdultProfile
 from .serializers import *
 from .models import *
 
+azure_client = None
 groq_client = None
 paddleOcr = None
 
 def initialize_models():
     # if any of the models is not initialized - try to initialize them
-    global groq_client, paddleOcr
+    global groq_client, paddleOcr, azure_client
+    if azure_client is None:
+        try:
+            azure_client = ChatCompletionsClient(
+                endpoint='https://models.github.ai/inference',
+                credential=AzureKeyCredential(settings.AZURE_TOKEN)
+            )
+        except Exception as e:
+            print("Failed to initialize the Azure client")
+            print(e)
     if groq_client is None:
         try:
             groq_client = Groq(api_key=settings.GROQ_API_KEY)
@@ -54,7 +68,6 @@ class ExerciseGenerationView(generics.GenericAPIView):
                 # choose a random letter from the alphabet and duplicate it
                 requested_text = random.choice(string.ascii_letters)
                 requested_text = requested_text * random.randint(3, 8)
-
             else:
                 category = random.choice([choice[0] for choice in Exercise.ExerciseCategory.choices])
                 # choose a random word from the chosen category from wordnet
@@ -106,10 +119,41 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         exercise.submitted_text = ""
         exercise.score = 0.0
         VLM_guess = ""
+        VLM_answer = None
         # if any of the models is not initialized - try to initialize them again
-        if groq_client is None or paddleOcr is None:
+        if groq_client is None or paddleOcr is None or azure_client is None:
             initialize_models()
-        if groq_client:
+        # if azure was initialized - use it as our first choice for a VLM model
+        if azure_client:
+            try:
+                VLM_answer = azure_client.complete(
+                    messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                        {
+                            "type": "text",
+                            "text": "write(without any more words, separate between them with a new line without numbers): 1. the text in the image - exactly what you recognize(there can be words that don't exists) in one line, 2. analyze the handwriting for his parent(talk about Letter Foundation, Letter spacing and size, Line quality, slant and cursive joinings, and any other relevant details)"
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                            "url": exercise.submitted_image.url
+                            }
+                        }
+                        ],
+                    },
+                ],
+                    temperature=0.5,
+                    top_p=1.0,
+                    model= "openai/gpt-4.1-mini"
+                )
+                print("Azure answered successfully")
+            except Exception as e:
+                print("Failed to recognize the text using the Azure model")
+                print(e)
+        
+        if groq_client and VLM_guess is None:
             try:
                 VLM_answer = groq_client.chat.completions.create(
                     model="meta-llama/llama-4-scout-17b-16e-instruct",
@@ -137,17 +181,23 @@ class ExerciseSubmissionView(generics.GenericAPIView):
                     n=1,
                     stop=None
                 )
-                VLM_answer_parts = VLM_answer.choices[0].message.content.split("\n")
-                for i in range(len(VLM_answer_parts)):
-                    print(f"VLM answer part {i}: {VLM_answer_parts[i]}")
-                VLM_guess = VLM_answer_parts[0]
-                # the feedback is in the rest of the answer
-                exercise.feedback = "\n".join(VLM_answer_parts[1:]).strip()
+                print("groq answered successfully")
             except Exception as e:
-                print("Failed to recognize the text using the VLM model")
+                print("Failed to recognize the text using the groq's VLM model")
                 print(e)
+        
+        # if any of the models was able to guess the text
+        if VLM_answer:
+            VLM_answer_parts = VLM_answer.choices[0].message.content.split("\n")
+            for i in range(len(VLM_answer_parts)):
+                print(f"VLM answer part {i}: {VLM_answer_parts[i]}")
+            VLM_guess = VLM_answer_parts[0]
+            # the feedback is in the rest of the answer
+            exercise.feedback = "\n".join(VLM_answer_parts[1:]).strip()
+        
         if paddleOcr is not None:
             results = paddleOcr.ocr(img_np, cls=True)
+            print("PaddleOCR results: ", results)
         if results[0] is not None or VLM_guess != "":
             print('\nDetected characters and their confidence score: ')
             # go over each letter expected
