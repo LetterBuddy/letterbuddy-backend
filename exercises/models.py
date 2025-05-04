@@ -15,12 +15,10 @@ class Exercise(models.Model):
     child = models.ForeignKey(ChildProfile ,on_delete=models.CASCADE)
     requested_text = models.CharField()
     submitted_text = models.CharField()
-
-
+    
     submitted_image = models.ImageField(null=True, blank=True)
     
     score = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
-
     # TODO maybe move ExerciseLevel here instead of ChildProfile
     level = models.CharField(max_length=50, choices=ChildProfile.ExerciseLevel.choices, default='letters')
     category = models.CharField(max_length=50, choices=ExerciseCategory.choices, null=True, blank=True)
@@ -30,11 +28,21 @@ class Exercise(models.Model):
     submission_date = models.DateTimeField(null=True, blank=True)
 
     feedback = models.TextField(null=True, blank=True)
-    
+
     def __str__(self):
         return self.child.user.username + " level:" + self.level + " category:" + self.category + " generated at:" + str(self.generated_date)
 
+# class SubmittedLetter(models.Model):
+#     exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE)
+#     submitted_letter = models.CharField(max_length=1)
+#     expected_letter = models.CharField(max_length=1)
+#     score = models.FloatField(validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
+#     position = models.IntegerField()
+#     def __str__(self):
+#         return self.exercise.child.user.username + " expected:" + self.expected_letter + " submitted:" + self.submitted_letter + " score:" + str(self.score) + " position:" + str(self.position)
+
 class Letter(models.Model):
+    child = models.ForeignKey(ChildProfile, on_delete=models.CASCADE)
     letter = models.CharField(max_length=1)
     avg_score = models.FloatField(validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
     count_appearances = models.IntegerField()
