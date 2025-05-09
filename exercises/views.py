@@ -1,56 +1,20 @@
 import random
 import string
 from nltk.corpus import wordnet
-from paddleocr import PaddleOCR
 from PIL import Image
 import numpy as np
-from groq import Groq
-
-from azure.ai.inference import ChatCompletionsClient
-from azure.core.credentials import AzureKeyCredential
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.response import Response
 
-from django.conf import settings
 from accounts.permissions import IsAuthenticatedAdult, IsAuthenticatedChild
 from accounts.models import ChildProfile, AdultProfile
 from .serializers import *
 from .models import *
+from .apps import initialize_models, azure_client, groq_client, paddleOcr
 
-azure_client = None
-groq_client = None
-paddleOcr = None
-
-def initialize_models():
-    # if any of the models is not initialized - try to initialize them
-    global groq_client, paddleOcr, azure_client
-    if azure_client is None:
-        try:
-            azure_client = ChatCompletionsClient(
-                endpoint='https://models.github.ai/inference',
-                credential=AzureKeyCredential(settings.AZURE_TOKEN)
-            )
-        except Exception as e:
-            print("Failed to initialize the Azure client")
-            print(e)
-    if groq_client is None:
-        try:
-            groq_client = Groq(api_key=settings.GROQ_API_KEY)
-        except Exception as e:
-            print("Failed to initialize the Groq client")
-            print(e)
-    if paddleOcr is None:
-        try:
-            paddleOcr = PaddleOCR(use_angle_cls=True, lang='en')
-        except Exception as e:
-            print("Failed to initialize the PaddleOCR client")
-            print(e)
-
-# initialize the models when the server starts
-initialize_models()
 
 class ExerciseGenerationView(generics.GenericAPIView):
     serializer_class = ExerciseGenerationSerializer
