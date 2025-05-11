@@ -5,5 +5,15 @@ from django.apps import AppConfig
 class ExercisesConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'exercises'
-    nltk.download('wordnet', quiet=True)
-    print("nltk wordnet downloaded")
+    # the server has to run this before it can be used
+    def ready(self):
+        # initialize the models
+        # Check if wordnet is already available
+        try:
+            nltk.data.find('corpora/wordnet.zip')
+            print("wordnet is already available")
+        # if not, download it
+        except LookupError:
+            print("wordnet was not found")
+            nltk.download('wordnet', quiet=True)
+            print("wordnet download complete")
