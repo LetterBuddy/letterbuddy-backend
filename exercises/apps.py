@@ -1,4 +1,3 @@
-import nltk
 from groq import Groq
 from paddleocr import PaddleOCR
 
@@ -46,14 +45,5 @@ class ExercisesConfig(AppConfig):
     def ready(self):
         # initialize the models
         initialize_models()
-        # Check if wordnet is already available
-        try:
-            nltk.data.find('corpora/wordnet.zip')
-            print("wordnet is already available")
-        # if not, download it
-        except LookupError:
-            print("wordnet was not found")
-            nltk.download('wordnet', quiet=True)
-            print("wordnet download complete")
         
         
