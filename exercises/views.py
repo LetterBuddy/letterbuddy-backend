@@ -4,6 +4,12 @@ from nltk.corpus import wordnet
 from PIL import Image
 import numpy as np
 
+from groq import Groq
+from paddleocr import PaddleOCR
+from azure.ai.inference import ChatCompletionsClient
+from azure.core.credentials import AzureKeyCredential
+
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Avg
@@ -14,7 +20,38 @@ from accounts.permissions import IsAuthenticatedAdult, IsAuthenticatedChild
 from accounts.models import ChildProfile, AdultProfile
 from .serializers import *
 from .models import *
-from .apps import initialize_models, azure_client, groq_client, paddleOcr
+
+azure_client = None
+groq_client = None
+paddleOcr = None
+
+def initialize_models():
+    # if any of the models is not initialized - try to initialize them
+    global groq_client, paddleOcr, azure_client
+    print("Initializing models")
+    if azure_client == None:
+        try:
+            azure_client = ChatCompletionsClient(
+                endpoint='https://models.github.ai/inference',
+                credential=AzureKeyCredential(settings.AZURE_TOKEN)
+            )
+        except Exception as e:
+            print("Failed to initialize the Azure client")
+            print(e)
+
+    if groq_client == None:
+        try:
+            groq_client = Groq(api_key=settings.GROQ_API_KEY)
+        except Exception as e:
+            print("Failed to initialize the Groq client")
+            print(e)
+
+    if paddleOcr == None:
+        try:
+            paddleOcr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
+        except Exception as e:
+            print("Failed to initialize the PaddleOCR client")
+            print(e)
 
 
 class ExerciseGenerationView(generics.GenericAPIView):
@@ -198,6 +235,7 @@ class ExerciseSubmissionView(generics.GenericAPIView):
                     # if both models guessed the same letter - add paddle confidence to the score
                     if VLM_char_guess == paddle_char_guess:
                         char_conf += results[1][i]
+                    # TODO deal with the case when only one model guessed something for the whole word
                     else:
                         char_conf -= results[1][i]
                         char_conf = max(char_conf, 0.0) # if the confidence is negative - set it to 0
