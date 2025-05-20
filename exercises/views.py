@@ -88,7 +88,7 @@ class ExerciseGenerationView(generics.GenericAPIView):
         serializer = ExerciseGenerationSerializer(exercise)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-# TODO save each letter score in the db in some way and update the child level
+
 class ExerciseSubmissionView(generics.GenericAPIView):
     # queryset will tell get_object which model to look for
     queryset = Exercise.objects.all()
@@ -249,6 +249,14 @@ class ExerciseSubmissionView(generics.GenericAPIView):
                     # prefer VLM guess if it is not empty
                     char = VLM_char_guess if VLM_char_guess != '' else paddle_char_guess
                 exercise.submitted_text += char
+                # save the letter score in the db
+                SubmittedLetter.objects.create(
+                    exercise=exercise,
+                    submitted_letter=char,
+                    expected_letter=exercise.requested_text[i],
+                    score=char_conf,
+                    position=i
+                )
                 print(f"Expected: {exercise.requested_text[i]}, Detected: {char}, with Confidence: {char_conf}")
         
         # average the score
