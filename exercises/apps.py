@@ -16,7 +16,8 @@ paddleOcr = None
 def initialize_models():
     # if any of the models is not initialized - try to initialize them
     global groq_client, paddleOcr, azure_client
-    if azure_client is None:
+    print("Initializing models")
+    if azure_client == None:
         try:
             azure_client = ChatCompletionsClient(
                 endpoint='https://models.github.ai/inference',
@@ -25,13 +26,13 @@ def initialize_models():
         except Exception as e:
             print("Failed to initialize the Azure client")
             print(e)
-    if groq_client is None:
+    if groq_client == None:
         try:
             groq_client = Groq(api_key=settings.GROQ_API_KEY)
         except Exception as e:
             print("Failed to initialize the Groq client")
             print(e)
-    if paddleOcr is None:
+    if paddleOcr == None:
         try:
             paddleOcr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
         except Exception as e:

@@ -6,6 +6,7 @@ import numpy as np
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.db.models import Avg
 from rest_framework import generics, status
 from rest_framework.response import Response
 
@@ -43,7 +44,6 @@ class ExerciseGenerationView(generics.GenericAPIView):
                     while True:
                         random_hyponym = random.choice(hyponyms)
                         requested_text = random.choice(random_hyponym.lemmas()).name()
-                        print(requested_text)
                         if "_" not in requested_text and " " not in requested_text and "-" not in requested_text:
                             break
 
@@ -69,23 +69,23 @@ class ExerciseSubmissionView(generics.GenericAPIView):
             return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True) 
+        save_submission_date = timezone.now()
         submitted_image = serializer.validated_data["submitted_image"]
         exercise.submitted_image = submitted_image
-        # TODO verify if automatically gets set to settings.py timezone
-        exercise.submission_date = timezone.now()
         # since the image is sent as a file, we need to open it and convert it to a numpy array
         # then we can use PaddleOCR to extract the text from the image
         img = Image.open(submitted_image)
         img_np = np.array(img)
         # Image.open causes the file pointer to be at the end of the file so we need to get it back to the beginning
         submitted_image.seek(0)
+        
         exercise.save()
         exercise.submitted_text = ""
         exercise.score = 0.0
         VLM_guess = ""
         VLM_answer = None
         # if any of the models is not initialized - try to initialize them again
-        if groq_client is None or paddleOcr is None or azure_client is None:
+        if groq_client == None or paddleOcr == None or azure_client == None:
             initialize_models()
         # if azure was initialized - use it as our first choice for a VLM model
         if azure_client:
@@ -117,7 +117,7 @@ class ExerciseSubmissionView(generics.GenericAPIView):
                 print("Failed to recognize the text using the Azure model")
                 print(e)
         
-        if groq_client and VLM_guess is None:
+        if groq_client and VLM_answer == None:
             try:
                 VLM_answer = groq_client.chat.completions.create(
                     model="meta-llama/llama-4-scout-17b-16e-instruct",
@@ -159,10 +159,15 @@ class ExerciseSubmissionView(generics.GenericAPIView):
             # the feedback is in the rest of the answer
             exercise.feedback = "\n".join(VLM_answer_parts[1:]).strip()
         
-        if paddleOcr is not None:
-            results = paddleOcr.ocr(img_np, cls=True)
+        results = [None]
+        if paddleOcr != None:
+            try:
+                results = paddleOcr.ocr(img_np, cls=True)
+            except Exception as e:
+                print("Failed to recognize the text using the PaddleOCR model")
+                print(e)
             print("PaddleOCR results: ", results)
-        if results[0] is not None or VLM_guess != "":
+        if results[0] != None or VLM_guess != "":
             print('\nDetected characters and their confidence score: ')
             # go over each letter expected
             # if the letter has been predicted correctly - add its confidence to the score
@@ -210,9 +215,20 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         
         # average the score
         exercise.score = exercise.score / len(exercise.requested_text) if len(exercise.requested_text) > 0 else 0.0
-        
+        exercise.submission_date = save_submission_date
         exercise.save()
         serializer = ExerciseSubmitSerializer(exercise)
+        
+        # update the child level - based on the avg score of all the exercises in his current level
+        current_child = exercise.child
+        avg_score = Exercise.objects.filter(child=current_child, level=current_child.exercise_level).aggregate(Avg('score'))['score__avg']
+        print(f"Avg score for child {current_child.user.username} in level {current_child.exercise_level}: {avg_score}")
+        # if the avg score is above 0.7 - move the child to the next level
+        if avg_score >= 0.7:
+            print(f"Child {current_child.user.username} has reached the next level")
+            current_child.exercise_level = ChildProfile.get_next_level(current_child.exercise_level)
+            current_child.save()
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
