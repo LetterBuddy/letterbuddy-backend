@@ -12,7 +12,7 @@ from azure.core.credentials import AzureKeyCredential
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Avg
+from django.db.models import Avg, Case, When, F, Value, FloatField
 from rest_framework import generics, status
 from rest_framework.response import Response
 
@@ -277,7 +277,29 @@ class ExerciseSubmissionView(generics.GenericAPIView):
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+# TODO maybe add what letters get confused with what letters
+class LetterStatsView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticatedAdult, ]
 
+    def get(self, request, pk):
+        child = get_object_or_404(ChildProfile, pk=pk)
+        # check if the child belongs to the current adult if not return 403 forbidden
+        current_adult = AdultProfile.objects.get(user=request.user)
+        if child.guiding_adult != current_adult:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        # return the avg score of the child in each letter
+        # values - group by the letter
+        # the first annotate - if the letter was guessed correctly - add its score to the avg score else 0
+        letter_scores = (SubmittedLetter.objects.filter(exercise__child=child).annotate(
+                guessing_score=Case(
+                    When(expected_letter=F('submitted_letter'), then=F('score')),
+                    default=Value(0.0),
+                    output_field=FloatField()
+                )
+            ).values('expected_letter').annotate(letter=F('expected_letter'), avg_score=Avg('guessing_score'))
+            .values('letter', 'avg_score').order_by('letter'))
+        return Response(letter_scores, status=status.HTTP_200_OK)
+    
 class ExerciseRetrieveView(generics.RetrieveAPIView):
     serializer_class = ExerciseSerializer
     permission_classes = (IsAuthenticatedAdult, )

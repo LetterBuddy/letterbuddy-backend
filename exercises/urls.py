@@ -1,8 +1,9 @@
 from django.urls import path
-from .views import ArticlesView, ExerciseGenerationView, ExerciseSubmissionView, ExerciseRetrieveView, SubmissionListOfChildView
+from .views import ArticlesView, LetterStatsView, ExerciseGenerationView, ExerciseSubmissionView, ExerciseRetrieveView, SubmissionListOfChildView
 
 urlpatterns = [
     path('', ExerciseGenerationView.as_view(), name='exercise_generation'),
+    path('stats/<int:pk>/letters', LetterStatsView.as_view(), name='letter_stats'),
     path('<int:pk>/submit/', ExerciseSubmissionView.as_view(), name='exercise_submit'),
     path('<int:pk>/', ExerciseRetrieveView.as_view(), name='exercise_retrieve'),
     path ('<int:pk>/submissions/', SubmissionListOfChildView.as_view(), name='submission_list_of_child'),

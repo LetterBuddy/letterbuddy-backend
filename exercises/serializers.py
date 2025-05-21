@@ -16,10 +16,17 @@ class ExerciseSubmitSerializer(serializers.ModelSerializer):
         fields = ('submitted_text', 'submitted_image', 'submission_date', 'score', 'feedback')
         read_only_fields = ('submitted_text', 'submission_date', 'score', 'feedback')
 
+
 class ExerciseSerializer(serializers.ModelSerializer):
+    letter_scores = serializers.SerializerMethodField()
     class Meta:
         model = Exercise
         fields = '__all__'
+    
+    def get_letter_scores(self, obj):
+        # an array of the scores for each letter by position
+        # TODO maybe return a score of 0 if the letter submitted is not the same as the expected letter rather than the score of the submitted letter
+        return list(SubmittedLetter.objects.filter(exercise=obj).order_by('position').values_list('score', flat=True))
 
 class SubmissionListSerializer(serializers.ModelSerializer):
     class Meta:
