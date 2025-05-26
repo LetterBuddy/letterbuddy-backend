@@ -3,6 +3,7 @@ import string
 from nltk.corpus import wordnet
 from PIL import Image
 import numpy as np
+import re
 
 from groq import Groq
 from paddleocr import PaddleOCR
@@ -29,7 +30,6 @@ def initialize_models():
     # if any of the models is not initialized - try to initialize them
     global groq_client, paddleOcr, azure_client
     print("Initializing models")
-    print(f"Azure token: {settings.AZURE_TOKEN}")
     if azure_client == None:
         try:
             azure_client = ChatCompletionsClient(
@@ -61,13 +61,13 @@ def get_models_analysis(exercise):
         initialize_models()
     VLM_answer = None
     if exercise.level == ChildProfile.ExerciseLevel.CATEGORY:
-        VLM_prompt = f"""A child submitted this image, write(separate between them with a single new line without numbers):
+        VLM_prompt = f"""A child submitted this image, write(number the parts, without **):
                                 1. only what he exactly wrote? (there can be words that do not exist).
                                 2. only Can it be a word from the category '{exercise.category}' (maybe with typos)? Yes/no
                                 3. only If yes then write only what word could it be?
                                 4. analyze the handwriting for his parent (talk about Letter Foundation, Letter spacing and size, Line quality, slant and cursive joinings, and any other relevant details)"""
     else:
-        VLM_prompt = "write(without any more words, separate between them with a new line without numbers): 1. the text in the image - exactly what you recognize(there can be words that don't exists) in one line, 2. analyze the handwriting for his parent(talk about Letter Foundation, Letter spacing and size, Line quality, slant and cursive joinings, and any other relevant details)"
+        VLM_prompt = "write(without any more words or **, number the parts): 1. the text in the image - exactly what you recognize(there can be words that don't exists) in one line, 2. analyze the handwriting for his parent(talk about Letter Foundation, Letter spacing and size, Line quality, slant and cursive joinings, and any other relevant details)"
     # if azure was initialized - use it as our first choice for a VLM model
     if azure_client:
         try:
@@ -135,12 +135,17 @@ def get_models_analysis(exercise):
     VLM_guess = ""
     # if any of the models was able to guess the text
     if VLM_answer:
-        VLM_answer_parts = VLM_answer.choices[0].message.content.split("\n")
+        # split the answer by numberings(like 1. 2. 3.)
+        # TODO think about how to score a category exercise
+        # Thought about giving half the score if the word is close to the requested category
+        # and half for the distance between the guessed word and that word from the category
+        VLM_answer_parts = re.split(r'\d+\.\s+', VLM_answer.choices[0].message.content.strip())[1:]
+        VLM_answer_parts = [re.sub(r'\s+', ' ', part).strip() for part in VLM_answer_parts]
         for i in range(len(VLM_answer_parts)):
             print(f"VLM answer part {i}: {VLM_answer_parts[i]}")
         VLM_guess = VLM_answer_parts[0]
-        # the feedback is in the rest of the answer
-        exercise.feedback = "\n".join(VLM_answer_parts[1:]).strip()
+        # the feedback is the last part of the answer
+        exercise.feedback = VLM_answer_parts[-1].strip()
     results = [None]
     # since the image is sent as a file, we need to open it and convert it to a numpy array
     # then we can use PaddleOCR to extract the text from the image
@@ -252,8 +257,9 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         # update the child level - based on the avg score of all the exercises in his current level
         current_child = exercise.child
         avg_score = Exercise.objects.filter(child=current_child, level=current_child.exercise_level).aggregate(Avg('score'))['score__avg']
-        print(f"Avg score for child {current_child.user.username} in level {current_child.exercise_level}: {avg_score}")
+        print(f"Avg score for child {current_child.user.username} in level {current_child.exercise_level}: {float(avg_score):.4f}")
         # if the avg score is above 0.7 - move the child to the next level
+        # TODO lower the level if the avg score in the current level is low
         if avg_score >= 0.7:
             print(f"Child {current_child.user.username} has reached the next level")
             current_child.exercise_level = ChildProfile.get_next_level(current_child.exercise_level)
@@ -271,7 +277,7 @@ class ExerciseGenerationView(generics.GenericAPIView):
         # if there isn't one - create a new one
         if not exercise:
             current_child_level = current_child.exercise_level
-            requested_text = None
+            requested_text = ""
             category = None
             if current_child_level == ChildProfile.ExerciseLevel.LETTERS:
                 # choose a random letter from the alphabet and duplicate it
