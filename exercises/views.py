@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.db.models import Avg, Case, When, F, Value, FloatField
 from rest_framework import generics, status
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 
 from accounts.permissions import IsAuthenticatedAdult, IsAuthenticatedChild
 from accounts.models import ChildProfile, AdultProfile
@@ -266,7 +267,6 @@ class ExerciseSubmissionView(generics.GenericAPIView):
             current_child.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
 class ExerciseGenerationView(generics.GenericAPIView):
     serializer_class = ExerciseGenerationSerializer
     permission_classes = (IsAuthenticatedChild, )
@@ -298,8 +298,11 @@ class ExerciseGenerationView(generics.GenericAPIView):
                             break
 
             exercise = Exercise.objects.create(child=current_child, requested_text=requested_text, level=current_child_level, category=category)
+            response_status = status.HTTP_201_CREATED
+        else:
+            response_status = status.HTTP_200_OK
         serializer = ExerciseGenerationSerializer(exercise)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=response_status)
 
 
 # TODO maybe add what letters get confused with what letters
@@ -325,21 +328,33 @@ class LetterStatsView(generics.GenericAPIView):
             .values('letter', 'avg_score').order_by('letter'))
         return Response(letter_scores, status=status.HTTP_200_OK)
     
-class ExerciseRetrieveView(generics.RetrieveAPIView):
+# both retrieve and delete methods are implemented in the same view - so they could be in the same path
+class ExerciseRetrieveDeleteView(generics.RetrieveDestroyAPIView):
     serializer_class = ExerciseSerializer
-    permission_classes = (IsAuthenticatedAdult, )
     queryset = Exercise.objects.all()
     
-    def get(self, request, pk):
-        # get the exercise object by its id(provided in the url - its pk - primary key)
-        exercise = self.get_object()
-        # check if the exercise belongs to a child of the current adult if not return 403 forbidden
-        current_adult = AdultProfile.objects.get(user=request.user)
-        if exercise.child.guiding_adult != current_adult:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        serializer = self.get_serializer(exercise)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
+    def get_permissions(self):
+        # if the request is a delete request - only authenticated children can access it
+        if self.request.method == 'DELETE':
+            return [IsAuthenticatedChild()]
+        # if the request is a get request - only authenticated adults can access it
+        elif self.request.method == 'GET':
+            return [IsAuthenticatedAdult()]
+        return super().get_permissions()
+     
+    def get_object(self):
+        exercise = super().get_object()
+        if self.request.method == 'DELETE':
+            # check if the exercise belongs to the current child if not return 403 forbidden
+            if exercise.child.user != self.request.user or exercise.submission_date is not None:
+                raise PermissionDenied("You are not allowed to delete this exercise.")
+        elif self.request.method == 'GET':
+            # check if the exercise belongs to a child of the current adult if not return 403 forbidden
+            current_adult = AdultProfile.objects.get(user=self.request.user)
+            if exercise.child.guiding_adult != current_adult:
+                raise PermissionDenied("You are not allowed to retrieve this exercise.")
+        return exercise
+    
 class SubmissionListOfChildView(generics.ListAPIView):
     serializer_class = SubmissionListSerializer
     permission_classes = (IsAuthenticatedAdult, )

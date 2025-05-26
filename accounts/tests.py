@@ -3,21 +3,28 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from accounts.models import AdultProfile, ChildProfile, User
+from .models import AdultProfile, ChildProfile
 
 User = get_user_model()
 
-class UserTests(APITestCase):
+# base test case for all tests - creates the user needed for them
+class BaseTestCase(APITestCase):
+    def setUp(self):
+        # set up the client to use the test database
+        self.client = self.client_class()
+        # set up the users
+        self.adult_user = User.objects.create_user(username="adult", password="test", first_name="adult", last_name="adult", email="adult@adult.com", role=User.Role.ADULT)
+        self.adult_profile = AdultProfile.objects.create(user=self.adult_user)
+        self.child_user = User.objects.create_user(username="child", password="test", first_name="child", last_name="child", role=User.Role.CHILD)
+        self.child_profile = ChildProfile.objects.create(user=self.child_user, guiding_adult=self.adult_profile)
+
+
+class UserTests(BaseTestCase):
     # setUp - runs before each test
     # tests - have to start with test_
     def setUp(self):
-        self.adult_user = User.objects.create_user(username="adult", password="test", first_name="Jodsfhn", last_name="Dfsoe", email="sdsa@dfds.com", role=User.Role.ADULT)
-        self.adult_profile = AdultProfile.objects.create(user=self.adult_user)
-        self.child_user = User.objects.create_user(username="child", password="test", first_name="kid", last_name="kiddfsdf", role=User.Role.CHILD)
-        self.child_profile = ChildProfile.objects.create(user=self.child_user, guiding_adult=self.adult_profile)
-        # to be used in the logout test
+        super().setUp()
         self.refresh = RefreshToken.for_user(self.adult_user)
-        self.client = self.client_class()
 
     # test new adult registration
     def test_adult_register(self):

@@ -11,6 +11,7 @@ class ExercisesConfig(AppConfig):
         # to avoid django imports before the app is ready
         from .views import initialize_models
         initialize_models()
+
         # Check if wordnet is already available
         try:
             nltk.data.find('corpora/wordnet.zip')
@@ -22,4 +23,4 @@ class ExercisesConfig(AppConfig):
             print("wordnet download complete")
         # load wordnet data to avoid cold start
         _ = wordnet.synsets('dog')
-        
+
