@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import ArticlesView, LetterStatsView, ExerciseGenerationView, ExerciseSubmissionView, ExerciseRetrieveView, SubmissionListOfChildView
+from .views import ArticlesView, LetterStatsView, ExerciseGenerationView, ExerciseSubmissionView, ExerciseRetrieveDeleteView, SubmissionListOfChildView
 
 urlpatterns = [
     path('', ExerciseGenerationView.as_view(), name='exercise_generation'),
