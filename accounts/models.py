@@ -26,6 +26,15 @@ class ChildProfile(models.Model):
         LETTERS = "letters"
         WORDS = "words"
         CATEGORY = "category"
+
+    @classmethod
+    def get_next_level(cls, level):
+        if level == cls.ExerciseLevel.LETTERS:
+            return cls.ExerciseLevel.WORDS
+        elif level == cls.ExerciseLevel.WORDS:
+            return cls.ExerciseLevel.CATEGORY
+        else:
+            return cls.ExerciseLevel.CATEGORY
         
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     guiding_adult = models.ForeignKey(AdultProfile, on_delete=models.CASCADE, related_name="children")
