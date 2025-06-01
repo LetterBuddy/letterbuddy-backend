@@ -4,6 +4,8 @@ from nltk.corpus import wordnet
 from PIL import Image
 import numpy as np
 import re
+from difflib import SequenceMatcher
+import Levenshtein
 
 from groq import Groq
 from paddleocr import PaddleOCR
@@ -164,63 +166,88 @@ def get_models_analysis(exercise):
         print("PaddleOCR results: ", results)
     return VLM_guess, results
 
-def score_exercise(exercise, VLM_guess, results):
+
+def compare_expected_with_recognized(expected, recognized, scores):
+    matcher = SequenceMatcher(None, expected, recognized)
+    ops = matcher.get_opcodes()
+    results = []
+    for tag, i1, i2, j1, j2 in ops:
+        if tag == 'equal':
+            for i in range(i1, i2):
+                results.append((expected[i], recognized[j1 + (i - i1)], scores[j1 + (i - i1)]))
+        elif tag == 'replace':
+            for i in range(i1, i2):
+                recognized_char = recognized[j1 + (i - i1)] if j1 + (i - i1) < len(recognized) else ''
+                recognized_score = scores[j1 + (i - i1)] if j1 + (i - i1) < len(scores) else 0.0
+                results.append((expected[i], recognized_char, recognized_score))
+        elif tag == 'delete':
+            for i in range(i1, i2):
+                results.append((expected[i], '', 0.0))
+    
+    return results
+
+def score_exercise(exercise, VLM_guess, paddleocr_analysis):
     print('\nDetected characters and their confidence score: ')
-    # go over each letter expected
-    # if the letter has been predicted correctly - add its confidence to the score
+    expected_text = exercise.requested_text
+    VLM_comparison = compare_expected_with_recognized(exercise.requested_text, VLM_guess, [1.0] * len(VLM_guess))
+    paddleocr_text = ''.join([paddleocr_analysis[0][0][1][i][0] for i in range(len(paddleocr_analysis[0][0][1]))] if paddleocr_analysis[0] else [])
+    paddleocr_scores = [paddleocr_analysis[1][i] for i in range(len(paddleocr_analysis[1]))]
+    print(f"VLM guess: {VLM_guess}, PaddleOCR text: {paddleocr_text}, PaddleOCR scores: {paddleocr_scores}")
+    paddleocr_comparison = compare_expected_with_recognized(exercise.requested_text, paddleocr_text, paddleocr_scores)
+    print(f"PaddleOCR comparison: {paddleocr_comparison}")
+    print(f"VLM comparison: {VLM_comparison}")
+    # TODO delete evaluation - only for debugging
+    evaluation = []
+    avg_correctly_guessed_score = 0.0
     # TODO only fitted for letters and words with requested_text - category needs to be handled differently
-    # TODO what to do when more letters are detected than expected?
-    # TODO what to do when the letters are detected in a different order than expected?
-    # TODO should we iterate over the whole text or only with the length of the requested text?
-    for i in range(len(exercise.requested_text)):
-        VLM_char_guess = ''
-        paddle_char_guess = ''
-        char = ''
-        char_conf = 0.0
-        # The VLM guessed something for that letter
-        if i < len(VLM_guess):
-            VLM_char_guess = VLM_guess[i]
-            print(f"The VLM detected: {VLM_char_guess}")
-            char_conf += 1.0 # can be played with - the idea is to give more weight to the VLM guess
-            # if the guess is correct - save it
-            if exercise.requested_text[i] == VLM_char_guess:
-                char = VLM_guess[i]
-        # paddle guessed something for that letter
-        if results[0] and i < len(results[0][0][1]):
-            paddle_char_guess = results[0][0][1][i][0]
-            print(f"PaddleOCR detected: {paddle_char_guess}")
-            # if the guess is correct - save it
-            if exercise.requested_text[i] == paddle_char_guess:
-                char = results[0][0][1][i][0]
-            # if both models guessed the same letter - add paddle confidence to the score
-            if VLM_char_guess == paddle_char_guess:
-                char_conf += results[1][i]
-            # TODO deal with the case when only one model guessed something for the whole word
-            else:
-                char_conf -= results[1][i]
-                char_conf = max(char_conf, 0.0) # if the confidence is negative - set it to 0
-        # avg of the two models confidence(if both guessed the same letter if not - 0.5)
-        char_conf = char_conf / 2
+    for i in range(len(expected_text)):
+        VLM_char = VLM_comparison[i][1]
+        VLM_score = VLM_comparison[i][2] 
+        paddleocr_char = paddleocr_comparison[i][1]
+        paddleocr_score = paddleocr_comparison[i][2]
+        current_char_score = 0.0
+        submitted_char = ''
+        expected_char = expected_text[i]
+        if VLM_char == paddleocr_char and VLM_char != '':
+            submitted_char = VLM_char
+            current_char_score = VLM_score * 0.7 + paddleocr_score * 0.3
+        # the models recognized different chars - if one is correct, use it and take into account that only one model is correct
+        elif VLM_char == expected_char:
+            submitted_char = VLM_char
+            current_char_score = (1 - paddleocr_score) if paddleocr_score != 0 else 0.7
+        elif paddleocr_char == expected_char:
+            submitted_char = paddleocr_char
+            current_char_score = paddleocr_score * 0.3
+        # no model recognized the expected char - use VLM if it is not empty, otherwise use PaddleOCR
+        elif VLM_char != '':
+            submitted_char = VLM_char
+            current_char_score = (1 - paddleocr_score) if paddleocr_score != 0 else 0.7
+        elif paddleocr_char != '':
+            submitted_char = paddleocr_char
+            current_char_score = paddleocr_score * 0.3
         # the correct character was detected by one of the models - add its confidence to the score
-        if char != '':
-            exercise.score += char_conf
-        else:
-            # either models guessed correctly - add the char of the one that guessed something
-            # prefer VLM guess if it is not empty
-            char = VLM_char_guess if VLM_char_guess != '' else paddle_char_guess
-        exercise.submitted_text += char
+        if submitted_char == expected_text[i]:
+            avg_correctly_guessed_score += current_char_score
+        
+        # TODO delete
+        evaluation.append((expected_text[i], submitted_char, current_char_score))
+
+        exercise.submitted_text += submitted_char
         # save the letter score in the db
         SubmittedLetter.objects.create(
             exercise=exercise,
-            submitted_letter=char,
-            expected_letter=exercise.requested_text[i],
-            score=char_conf,
+            submitted_letter=submitted_char,
+            expected_letter=expected_text[i],
+            score=current_char_score,
             position=i
         )
-        print(f"Expected: {exercise.requested_text[i]}, Detected: {char}, with Confidence: {char_conf}")
-    
+        print(f"Expected: {expected_text[i]}, Detected: {submitted_char}, with Confidence: {current_char_score}")
     # average the score
-    exercise.score = exercise.score / len(exercise.requested_text) if len(exercise.requested_text) > 0 else 0.0
+    print("Evaluation of the exercise: ", evaluation)
+    avg_correctly_guessed_score /= len(expected_text) if len(expected_text) > 0 else 0.0
+    levenshtein_ratio = Levenshtein.ratio(expected_text, VLM_guess) if VLM_guess else Levenshtein.ratio(expected_text, paddleocr_text)
+    exercise.score = (avg_correctly_guessed_score + levenshtein_ratio) / 2
+    print("submitted: " + exercise.submitted_text + " Average score:", avg_correctly_guessed_score, "Levenshtein ratio:", levenshtein_ratio, "Final score:", exercise.score)
 
 class ExerciseSubmissionView(generics.GenericAPIView):
     # queryset will tell get_object which model to look for
