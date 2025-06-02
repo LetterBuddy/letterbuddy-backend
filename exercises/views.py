@@ -149,21 +149,32 @@ def get_models_analysis(exercise):
         VLM_guess = VLM_answer_parts[0]
         # the feedback is the last part of the answer
         exercise.feedback = VLM_answer_parts[-1].strip()
+        if exercise.level == ChildProfile.ExerciseLevel.CATEGORY:
+            # if the second part is "yes" - it means that the word is from that category
+            if len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "yes":
+                # if it is close to a word from the category - will we want to see how close it is
+                # TODO maybe we will prefer not to use requested_text field
+                exercise.requested_text = VLM_answer_parts[2].strip()
+            elif len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "no":
+                # if the second part is "no" - it means that the word is not from that category
+                exercise.submitted_text = VLM_guess
     results = [None]
-    # since the image is sent as a file, we need to open it and convert it to a numpy array
-    # then we can use PaddleOCR to extract the text from the image
-    submitted_image = exercise.submitted_image
-    img = Image.open(submitted_image)
-    img_np = np.array(img)
-    # Image.open causes the file pointer to be at the end of the file so we need to get it back to the beginning
-    submitted_image.seek(0)
-    if paddleOcr != None:
-        try:
-            results = paddleOcr.ocr(img_np, cls=True)
-        except Exception as e:
-            print("Failed to recognize the text using the PaddleOCR model")
-            print(e)
-        print("PaddleOCR results: ", results)
+    # if the exercise is a category exercise, but the VLM didn't think it is a word from that category - no need to use PaddleOCR
+    if exercise.submitted_text == "":
+        # since the image is sent as a file, we need to open it and convert it to a numpy array
+        # then we can use PaddleOCR to extract the text from the image
+        submitted_image = exercise.submitted_image
+        img = Image.open(submitted_image)
+        img_np = np.array(img)
+        # Image.open causes the file pointer to be at the end of the file so we need to get it back to the beginning
+        submitted_image.seek(0)
+        if paddleOcr != None:
+            try:
+                results = paddleOcr.ocr(img_np, cls=True)
+            except Exception as e:
+                print("Failed to recognize the text using the PaddleOCR model")
+                print(e)
+            print("PaddleOCR results: ", results)
     return VLM_guess, results
 
 
@@ -191,7 +202,7 @@ def score_exercise(exercise, VLM_guess, paddleocr_analysis):
     expected_text = exercise.requested_text
     VLM_comparison = compare_expected_with_recognized(exercise.requested_text, VLM_guess, [1.0] * len(VLM_guess))
     paddleocr_text = ''.join([paddleocr_analysis[0][0][1][i][0] for i in range(len(paddleocr_analysis[0][0][1]))] if paddleocr_analysis[0] else [])
-    paddleocr_scores = [paddleocr_analysis[1][i] for i in range(len(paddleocr_analysis[1]))]
+    paddleocr_scores = [paddleocr_analysis[1][i] for i in range(len(paddleocr_analysis[1]))] if paddleocr_analysis[1] else []
     print(f"VLM guess: {VLM_guess}, PaddleOCR text: {paddleocr_text}, PaddleOCR scores: {paddleocr_scores}")
     paddleocr_comparison = compare_expected_with_recognized(exercise.requested_text, paddleocr_text, paddleocr_scores)
     print(f"PaddleOCR comparison: {paddleocr_comparison}")
@@ -226,25 +237,30 @@ def score_exercise(exercise, VLM_guess, paddleocr_analysis):
             submitted_char = paddleocr_char
             current_char_score = paddleocr_score * 0.3
         # the correct character was detected by one of the models - add its confidence to the score
-        if submitted_char == expected_text[i]:
+        if submitted_char == expected_char:
             avg_correctly_guessed_score += current_char_score
+        # TODO maybe also apply for similar characters like 'l' and 'I'
+        elif submitted_char.lower() == expected_char.lower():
+            # if the submitted char is the same as the expected char but with different case - give it a lower score
+            # TODO maybe think of a different way to add this score 
+            avg_correctly_guessed_score += (1 - current_char_score)
         
         # TODO delete
-        evaluation.append((expected_text[i], submitted_char, current_char_score))
+        evaluation.append((expected_char, submitted_char, current_char_score))
 
         exercise.submitted_text += submitted_char
         # save the letter score in the db
         SubmittedLetter.objects.create(
             exercise=exercise,
             submitted_letter=submitted_char,
-            expected_letter=expected_text[i],
+            expected_letter=expected_char,
             score=current_char_score,
             position=i
         )
-        print(f"Expected: {expected_text[i]}, Detected: {submitted_char}, with Confidence: {current_char_score}")
+        print(f"Expected: {expected_char}, Detected: {submitted_char}, with Confidence: {current_char_score}")
     # average the score
     print("Evaluation of the exercise: ", evaluation)
-    avg_correctly_guessed_score /= len(expected_text) if len(expected_text) > 0 else 0.0
+    avg_correctly_guessed_score /= len(expected_text) if len(expected_text) > 0 else 1.0
     levenshtein_ratio = Levenshtein.ratio(expected_text, VLM_guess) if VLM_guess else Levenshtein.ratio(expected_text, paddleocr_text)
     exercise.score = (avg_correctly_guessed_score + levenshtein_ratio) / 2
     print("submitted: " + exercise.submitted_text + " Average score:", avg_correctly_guessed_score, "Levenshtein ratio:", levenshtein_ratio, "Final score:", exercise.score)
