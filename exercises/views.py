@@ -202,7 +202,7 @@ def score_exercise(exercise, VLM_guess, paddleocr_analysis):
     expected_text = exercise.requested_text
     VLM_comparison = compare_expected_with_recognized(exercise.requested_text, VLM_guess, [1.0] * len(VLM_guess))
     paddleocr_text = ''.join([paddleocr_analysis[0][0][1][i][0] for i in range(len(paddleocr_analysis[0][0][1]))] if paddleocr_analysis[0] else [])
-    paddleocr_scores = [paddleocr_analysis[1][i] for i in range(len(paddleocr_analysis[1]))] if paddleocr_analysis[1] else []
+    paddleocr_scores = [paddleocr_analysis[1][i] for i in range(len(paddleocr_analysis[1]))] if paddleocr_analysis and len(paddleocr_analysis) > 1  else []
     print(f"VLM guess: {VLM_guess}, PaddleOCR text: {paddleocr_text}, PaddleOCR scores: {paddleocr_scores}")
     paddleocr_comparison = compare_expected_with_recognized(exercise.requested_text, paddleocr_text, paddleocr_scores)
     print(f"PaddleOCR comparison: {paddleocr_comparison}")
@@ -298,16 +298,25 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         exercise.save()
         serializer = ExerciseSubmitSerializer(exercise)
         
-        # update the child level - based on the avg score of all the exercises in his current level
         current_child = exercise.child
-        avg_score = Exercise.objects.filter(child=current_child, level=current_child.exercise_level).aggregate(Avg('score'))['score__avg']
-        print(f"Avg score for child {current_child.user.username} in level {current_child.exercise_level}: {float(avg_score):.4f}")
-        # if the avg score is above 0.7 - move the child to the next level
-        # TODO lower the level if the avg score in the current level is low
-        if avg_score >= 0.7:
-            print(f"Child {current_child.user.username} has reached the next level")
-            current_child.exercise_level = ChildProfile.get_next_level(current_child.exercise_level)
-            current_child.save()
+        # get the last 10 exercises of the child
+        recent_exercises = (Exercise.objects.filter(child=current_child).order_by('-submission_date')[:10])
+        # make sure that the last 10 exercises were in the current level
+        recent_current_level_exercises = [ex for ex in recent_exercises if ex.level == current_child.exercise_level]
+        print(f"Child {current_child.user.username} has done {len(recent_current_level_exercises)} exercises recently in his current level {current_child.exercise_level}")
+        if len(recent_current_level_exercises) == 10:
+            # if there are 10 exercises in the current level - calculate their avg score
+            avg_score = sum(float(ex.score) for ex in recent_current_level_exercises) / 10.0
+            print(f"Avg score for child {current_child.user.username} in level {current_child.exercise_level} (the last 10 ex): {float(avg_score):.4f}")
+            # if the avg score is above 0.7 - move the child to the next level
+            if avg_score >= 0.7:
+                print(f"Child {current_child.user.username} has reached the next level")
+                current_child.exercise_level = ChildProfile.get_next_level(current_child.exercise_level)
+                current_child.save()
+            elif avg_score <= 0.3:
+                print(f"Child {current_child.user.username} has been lowered to the previous level")
+                current_child.exercise_level = ChildProfile.get_previous_level(current_child.exercise_level)
+                current_child.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ExerciseGenerationView(generics.GenericAPIView):

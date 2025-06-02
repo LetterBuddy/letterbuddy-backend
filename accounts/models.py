@@ -36,6 +36,15 @@ class ChildProfile(models.Model):
         else:
             return cls.ExerciseLevel.CATEGORY
         
+    @classmethod
+    def get_previous_level(cls, level):
+        if level == cls.ExerciseLevel.CATEGORY:
+            return cls.ExerciseLevel.WORDS
+        elif level == cls.ExerciseLevel.WORDS:
+            return cls.ExerciseLevel.LETTERS
+        else:
+            return cls.ExerciseLevel.LETTERS
+        
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     guiding_adult = models.ForeignKey(AdultProfile, on_delete=models.CASCADE, related_name="children")
     exercise_level = models.CharField(max_length=50, choices=ExerciseLevel.choices, default='letters')
