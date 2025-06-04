@@ -15,7 +15,7 @@ from azure.core.credentials import AzureKeyCredential
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Avg, Case, When, F, Value, FloatField
+from django.db.models import Avg, Case, When, F, Value, FloatField, Count
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
@@ -358,7 +358,7 @@ class ExerciseGenerationView(generics.GenericAPIView):
 
 
 # TODO maybe add what letters get confused with what letters
-class LetterStatsView(generics.GenericAPIView):
+class ExerciseStatsView(generics.GenericAPIView):
     permission_classes = [IsAuthenticatedAdult, ]
 
     def get(self, request, pk):
@@ -367,7 +367,7 @@ class LetterStatsView(generics.GenericAPIView):
         current_adult = AdultProfile.objects.get(user=request.user)
         if child.guiding_adult != current_adult:
             return Response(status=status.HTTP_403_FORBIDDEN)
-        # return the avg score of the child in each letter
+        # the avg score of the child in each letter
         # values - group by the letter
         # the first annotate - if the letter was guessed correctly - add its score to the avg score else 0
         letter_scores = (SubmittedLetter.objects.filter(exercise__child=child).annotate(
@@ -376,9 +376,58 @@ class LetterStatsView(generics.GenericAPIView):
                     default=Value(0.0),
                     output_field=FloatField()
                 )
-            ).values('expected_letter').annotate(letter=F('expected_letter'), avg_score=Avg('guessing_score'))
-            .values('letter', 'avg_score').order_by('letter'))
-        return Response(letter_scores, status=status.HTTP_200_OK)
+            ).values('expected_letter').annotate(letter=F('expected_letter'), avg_score=Avg('guessing_score')
+            ).values('letter', 'avg_score').order_by('letter'))
+        
+        # the avg score of the child in each level
+        level_scores = (
+            Exercise.objects.filter(child=child)
+            .values('level')
+            .annotate(avg_score=Avg('score'))
+            .order_by('level')
+        )
+
+        # letters confused with other letters
+        confused_letters = (
+            SubmittedLetter.objects.filter(exercise__child=child)
+            .exclude(expected_letter=F('submitted_letter')) #don't include correct guesses
+            .values('expected_letter', 'submitted_letter')
+            .annotate(confusion_count=Count('id')) # count how many times the expected letter was confused with the submitted letter
+            .order_by('expected_letter', '-confusion_count')
+        )
+
+        letter_appearances = dict(
+            SubmittedLetter.objects.filter(exercise__child=child)
+            .values('expected_letter')
+            .annotate(total=Count('id'))
+            .values_list('expected_letter', 'total')
+        )
+        often_confused_letters = []
+        already_added_letters = set()
+        for confusion in confused_letters:
+            expected_letter = confusion['expected_letter']
+            # will want to add only the most confused letter with each letter
+            # it is the first in order in confused_letters because it is sorted by the confusion_count
+            # goes over the other letters confused with the same one
+            if expected_letter not in already_added_letters:
+                confused_with = confusion['submitted_letter']
+                confusion_count = confusion['confusion_count']
+                letter_total_appearances = letter_appearances.get(expected_letter, 1)
+                confusion_percentage = round((confusion_count / letter_total_appearances) * 100, 0)
+                # if it is confused often - add the submitted letter and the confusion count to the list of confused letters
+                if confusion_percentage >= 65: 
+                    often_confused_letters.append({
+                        'letter': expected_letter,
+                        'confused_with': confused_with,
+                        'times': confusion_count, # TODO probably remove - percentage is enough
+                        'confusion_percentage': confusion_percentage
+                    })
+
+        return Response({
+            'letter_scores': letter_scores,
+            'level_scores': level_scores,
+            'often_confused_letters': often_confused_letters
+        }, status=status.HTTP_200_OK)
     
 # both retrieve and delete methods are implemented in the same view - so they could be in the same path
 class ExerciseRetrieveDeleteView(generics.RetrieveDestroyAPIView):
