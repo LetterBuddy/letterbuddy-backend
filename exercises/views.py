@@ -68,9 +68,9 @@ def get_models_analysis(exercise):
                                 1. only what he exactly wrote? (there can be words that do not exist).
                                 2. only Can it be a word from the category '{exercise.category}' (maybe with typos)? Yes/no
                                 3. only If yes then write only what word could it be?
-                                4. analyze the handwriting for his parent (talk about Letter Foundation, Letter spacing and size, Line quality, slant and cursive joinings, and any other relevant details)"""
+                                4. analyze the handwriting for his parent (talk about Letter Foundation, Letter spacing and size, Line quality, and any other relevant details)"""
     else:
-        VLM_prompt = "write(without any more words or **, number the parts): 1. the text in the image - exactly what you recognize(there can be words that don't exists) in one line, 2. analyze the handwriting for his parent(talk about Letter Foundation, Letter spacing and size, Line quality, slant and cursive joinings, and any other relevant details)"
+        VLM_prompt = "write(without any more words or **, number the parts): 1. the text in the image - exactly what you recognize(there can be words that don't exists) in one line without spaces between submitted letters, notice- there might be capital letters too 2. analyze the handwriting for his parent(talk about Letter Foundation, Letter spacing and size, Line quality, and any other relevant details)"
     # if azure was initialized - use it as our first choice for a VLM model
     if azure_client:
         try:
@@ -225,14 +225,14 @@ def score_exercise(exercise, VLM_guess, paddleocr_analysis):
         # the models recognized different chars - if one is correct, use it and take into account that only one model is correct
         elif VLM_char == expected_char:
             submitted_char = VLM_char
-            current_char_score = (1 - paddleocr_score) if paddleocr_score != 0 else 0.7
+            current_char_score = (1 - paddleocr_score * 0.3) if paddleocr_score != 0 else 0.7
         elif paddleocr_char == expected_char:
             submitted_char = paddleocr_char
             current_char_score = paddleocr_score * 0.3
         # no model recognized the expected char - use VLM if it is not empty, otherwise use PaddleOCR
         elif VLM_char != '':
             submitted_char = VLM_char
-            current_char_score = (1 - paddleocr_score) if paddleocr_score != 0 else 0.7
+            current_char_score = (1 - paddleocr_score * 0.3) if paddleocr_score != 0 else 0.7
         elif paddleocr_char != '':
             submitted_char = paddleocr_char
             current_char_score = paddleocr_score * 0.3
