@@ -4,6 +4,8 @@ from nltk.corpus import wordnet
 from PIL import Image
 import numpy as np
 import re
+from difflib import SequenceMatcher
+import Levenshtein
 
 from groq import Groq
 from paddleocr import PaddleOCR
@@ -13,7 +15,7 @@ from azure.core.credentials import AzureKeyCredential
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Avg, Case, When, F, Value, FloatField
+from django.db.models import Avg, Case, When, F, Value, FloatField, Count
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
@@ -147,80 +149,121 @@ def get_models_analysis(exercise):
         VLM_guess = VLM_answer_parts[0]
         # the feedback is the last part of the answer
         exercise.feedback = VLM_answer_parts[-1].strip()
+        if exercise.level == ChildProfile.ExerciseLevel.CATEGORY:
+            # if the second part is "yes" - it means that the word is from that category
+            if len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "yes":
+                # if it is close to a word from the category - will we want to see how close it is
+                # TODO maybe we will prefer not to use requested_text field
+                exercise.requested_text = VLM_answer_parts[2].strip()
+            elif len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "no":
+                # if the second part is "no" - it means that the word is not from that category
+                exercise.submitted_text = VLM_guess
     results = [None]
-    # since the image is sent as a file, we need to open it and convert it to a numpy array
-    # then we can use PaddleOCR to extract the text from the image
-    submitted_image = exercise.submitted_image
-    img = Image.open(submitted_image)
-    img_np = np.array(img)
-    # Image.open causes the file pointer to be at the end of the file so we need to get it back to the beginning
-    submitted_image.seek(0)
-    if paddleOcr != None:
-        try:
-            results = paddleOcr.ocr(img_np, cls=True)
-        except Exception as e:
-            print("Failed to recognize the text using the PaddleOCR model")
-            print(e)
-        print("PaddleOCR results: ", results)
+    # if the exercise is a category exercise, but the VLM didn't think it is a word from that category - no need to use PaddleOCR
+    if exercise.submitted_text == "":
+        # since the image is sent as a file, we need to open it and convert it to a numpy array
+        # then we can use PaddleOCR to extract the text from the image
+        submitted_image = exercise.submitted_image
+        img = Image.open(submitted_image)
+        img_np = np.array(img)
+        # Image.open causes the file pointer to be at the end of the file so we need to get it back to the beginning
+        submitted_image.seek(0)
+        if paddleOcr != None:
+            try:
+                results = paddleOcr.ocr(img_np, cls=True)
+            except Exception as e:
+                print("Failed to recognize the text using the PaddleOCR model")
+                print(e)
+            print("PaddleOCR results: ", results)
     return VLM_guess, results
 
-def score_exercise(exercise, VLM_guess, results):
+
+def compare_expected_with_recognized(expected, recognized, scores):
+    matcher = SequenceMatcher(None, expected, recognized)
+    ops = matcher.get_opcodes()
+    results = []
+    for tag, i1, i2, j1, j2 in ops:
+        if tag == 'equal':
+            for i in range(i1, i2):
+                results.append((expected[i], recognized[j1 + (i - i1)], scores[j1 + (i - i1)]))
+        elif tag == 'replace':
+            for i in range(i1, i2):
+                recognized_char = recognized[j1 + (i - i1)] if j1 + (i - i1) < len(recognized) else ''
+                recognized_score = scores[j1 + (i - i1)] if j1 + (i - i1) < len(scores) else 0.0
+                results.append((expected[i], recognized_char, recognized_score))
+        elif tag == 'delete':
+            for i in range(i1, i2):
+                results.append((expected[i], '', 0.0))
+    
+    return results
+
+def score_exercise(exercise, VLM_guess, paddleocr_analysis):
     print('\nDetected characters and their confidence score: ')
-    # go over each letter expected
-    # if the letter has been predicted correctly - add its confidence to the score
+    expected_text = exercise.requested_text
+    VLM_comparison = compare_expected_with_recognized(exercise.requested_text, VLM_guess, [1.0] * len(VLM_guess))
+    paddleocr_text = ''.join([paddleocr_analysis[0][0][1][i][0] for i in range(len(paddleocr_analysis[0][0][1]))] if paddleocr_analysis[0] else [])
+    paddleocr_scores = [paddleocr_analysis[1][i] for i in range(len(paddleocr_analysis[1]))] if paddleocr_analysis and len(paddleocr_analysis) > 1  else []
+    print(f"VLM guess: {VLM_guess}, PaddleOCR text: {paddleocr_text}, PaddleOCR scores: {paddleocr_scores}")
+    paddleocr_comparison = compare_expected_with_recognized(exercise.requested_text, paddleocr_text, paddleocr_scores)
+    print(f"PaddleOCR comparison: {paddleocr_comparison}")
+    print(f"VLM comparison: {VLM_comparison}")
+    # TODO delete evaluation - only for debugging
+    evaluation = []
+    avg_correctly_guessed_score = 0.0
     # TODO only fitted for letters and words with requested_text - category needs to be handled differently
-    # TODO what to do when more letters are detected than expected?
-    # TODO what to do when the letters are detected in a different order than expected?
-    # TODO should we iterate over the whole text or only with the length of the requested text?
-    for i in range(len(exercise.requested_text)):
-        VLM_char_guess = ''
-        paddle_char_guess = ''
-        char = ''
-        char_conf = 0.0
-        # The VLM guessed something for that letter
-        if i < len(VLM_guess):
-            VLM_char_guess = VLM_guess[i]
-            print(f"The VLM detected: {VLM_char_guess}")
-            char_conf += 1.0 # can be played with - the idea is to give more weight to the VLM guess
-            # if the guess is correct - save it
-            if exercise.requested_text[i] == VLM_char_guess:
-                char = VLM_guess[i]
-        # paddle guessed something for that letter
-        if results[0] and i < len(results[0][0][1]):
-            paddle_char_guess = results[0][0][1][i][0]
-            print(f"PaddleOCR detected: {paddle_char_guess}")
-            # if the guess is correct - save it
-            if exercise.requested_text[i] == paddle_char_guess:
-                char = results[0][0][1][i][0]
-            # if both models guessed the same letter - add paddle confidence to the score
-            if VLM_char_guess == paddle_char_guess:
-                char_conf += results[1][i]
-            # TODO deal with the case when only one model guessed something for the whole word
-            else:
-                char_conf -= results[1][i]
-                char_conf = max(char_conf, 0.0) # if the confidence is negative - set it to 0
-        # avg of the two models confidence(if both guessed the same letter if not - 0.5)
-        char_conf = char_conf / 2
+    for i in range(len(expected_text)):
+        VLM_char = VLM_comparison[i][1]
+        VLM_score = VLM_comparison[i][2] 
+        paddleocr_char = paddleocr_comparison[i][1]
+        paddleocr_score = paddleocr_comparison[i][2]
+        current_char_score = 0.0
+        submitted_char = ''
+        expected_char = expected_text[i]
+        if VLM_char == paddleocr_char and VLM_char != '':
+            submitted_char = VLM_char
+            current_char_score = VLM_score * 0.7 + paddleocr_score * 0.3
+        # the models recognized different chars - if one is correct, use it and take into account that only one model is correct
+        elif VLM_char == expected_char:
+            submitted_char = VLM_char
+            current_char_score = (1 - paddleocr_score) if paddleocr_score != 0 else 0.7
+        elif paddleocr_char == expected_char:
+            submitted_char = paddleocr_char
+            current_char_score = paddleocr_score * 0.3
+        # no model recognized the expected char - use VLM if it is not empty, otherwise use PaddleOCR
+        elif VLM_char != '':
+            submitted_char = VLM_char
+            current_char_score = (1 - paddleocr_score) if paddleocr_score != 0 else 0.7
+        elif paddleocr_char != '':
+            submitted_char = paddleocr_char
+            current_char_score = paddleocr_score * 0.3
         # the correct character was detected by one of the models - add its confidence to the score
-        if char != '':
-            exercise.score += char_conf
-        else:
-            # either models guessed correctly - add the char of the one that guessed something
-            # prefer VLM guess if it is not empty
-            char = VLM_char_guess if VLM_char_guess != '' else paddle_char_guess
-        exercise.submitted_text += char
+        if submitted_char == expected_char:
+            avg_correctly_guessed_score += current_char_score
+        # TODO maybe also apply for similar characters like 'l' and 'I'
+        elif submitted_char.lower() == expected_char.lower():
+            # if the submitted char is the same as the expected char but with different case - give it a lower score
+            # TODO maybe think of a different way to add this score 
+            avg_correctly_guessed_score += (1 - current_char_score)
+        
+        # TODO delete
+        evaluation.append((expected_char, submitted_char, current_char_score))
+
+        exercise.submitted_text += submitted_char
         # save the letter score in the db
         SubmittedLetter.objects.create(
             exercise=exercise,
-            submitted_letter=char,
-            expected_letter=exercise.requested_text[i],
-            score=char_conf,
+            submitted_letter=submitted_char,
+            expected_letter=expected_char,
+            score=current_char_score,
             position=i
         )
-        print(f"Expected: {exercise.requested_text[i]}, Detected: {char}, with Confidence: {char_conf}")
-    
+        print(f"Expected: {expected_char}, Detected: {submitted_char}, with Confidence: {current_char_score}")
     # average the score
-    exercise.score = exercise.score / len(exercise.requested_text) if len(exercise.requested_text) > 0 else 0.0
+    print("Evaluation of the exercise: ", evaluation)
+    avg_correctly_guessed_score /= len(expected_text) if len(expected_text) > 0 else 1.0
+    levenshtein_ratio = Levenshtein.ratio(expected_text, VLM_guess) if VLM_guess else Levenshtein.ratio(expected_text, paddleocr_text)
+    exercise.score = (avg_correctly_guessed_score + levenshtein_ratio) / 2
+    print("submitted: " + exercise.submitted_text + " Average score:", avg_correctly_guessed_score, "Levenshtein ratio:", levenshtein_ratio, "Final score:", exercise.score)
 
 class ExerciseSubmissionView(generics.GenericAPIView):
     # queryset will tell get_object which model to look for
@@ -255,16 +298,25 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         exercise.save()
         serializer = ExerciseSubmitSerializer(exercise)
         
-        # update the child level - based on the avg score of all the exercises in his current level
         current_child = exercise.child
-        avg_score = Exercise.objects.filter(child=current_child, level=current_child.exercise_level).aggregate(Avg('score'))['score__avg']
-        print(f"Avg score for child {current_child.user.username} in level {current_child.exercise_level}: {float(avg_score):.4f}")
-        # if the avg score is above 0.7 - move the child to the next level
-        # TODO lower the level if the avg score in the current level is low
-        if avg_score >= 0.7:
-            print(f"Child {current_child.user.username} has reached the next level")
-            current_child.exercise_level = ChildProfile.get_next_level(current_child.exercise_level)
-            current_child.save()
+        # get the last 10 exercises of the child
+        recent_exercises = (Exercise.objects.filter(child=current_child).order_by('-submission_date')[:10])
+        # make sure that the last 10 exercises were in the current level
+        recent_current_level_exercises = [ex for ex in recent_exercises if ex.level == current_child.exercise_level]
+        print(f"Child {current_child.user.username} has done {len(recent_current_level_exercises)} exercises recently in his current level {current_child.exercise_level}")
+        if len(recent_current_level_exercises) == 10:
+            # if there are 10 exercises in the current level - calculate their avg score
+            avg_score = sum(float(ex.score) for ex in recent_current_level_exercises) / 10.0
+            print(f"Avg score for child {current_child.user.username} in level {current_child.exercise_level} (the last 10 ex): {float(avg_score):.4f}")
+            # if the avg score is above 0.7 - move the child to the next level
+            if avg_score >= 0.7:
+                print(f"Child {current_child.user.username} has reached the next level")
+                current_child.exercise_level = ChildProfile.get_next_level(current_child.exercise_level)
+                current_child.save()
+            elif avg_score <= 0.3:
+                print(f"Child {current_child.user.username} has been lowered to the previous level")
+                current_child.exercise_level = ChildProfile.get_previous_level(current_child.exercise_level)
+                current_child.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ExerciseGenerationView(generics.GenericAPIView):
@@ -306,7 +358,7 @@ class ExerciseGenerationView(generics.GenericAPIView):
 
 
 # TODO maybe add what letters get confused with what letters
-class LetterStatsView(generics.GenericAPIView):
+class ExerciseStatsView(generics.GenericAPIView):
     permission_classes = [IsAuthenticatedAdult, ]
 
     def get(self, request, pk):
@@ -315,7 +367,7 @@ class LetterStatsView(generics.GenericAPIView):
         current_adult = AdultProfile.objects.get(user=request.user)
         if child.guiding_adult != current_adult:
             return Response(status=status.HTTP_403_FORBIDDEN)
-        # return the avg score of the child in each letter
+        # the avg score of the child in each letter
         # values - group by the letter
         # the first annotate - if the letter was guessed correctly - add its score to the avg score else 0
         letter_scores = (SubmittedLetter.objects.filter(exercise__child=child).annotate(
@@ -324,9 +376,58 @@ class LetterStatsView(generics.GenericAPIView):
                     default=Value(0.0),
                     output_field=FloatField()
                 )
-            ).values('expected_letter').annotate(letter=F('expected_letter'), avg_score=Avg('guessing_score'))
-            .values('letter', 'avg_score').order_by('letter'))
-        return Response(letter_scores, status=status.HTTP_200_OK)
+            ).values('expected_letter').annotate(letter=F('expected_letter'), avg_score=Avg('guessing_score')
+            ).values('letter', 'avg_score').order_by('letter'))
+        
+        # the avg score of the child in each level
+        level_scores = (
+            Exercise.objects.filter(child=child)
+            .values('level')
+            .annotate(avg_score=Avg('score'))
+            .order_by('level')
+        )
+
+        # letters confused with other letters
+        confused_letters = (
+            SubmittedLetter.objects.filter(exercise__child=child)
+            .exclude(expected_letter=F('submitted_letter')) #don't include correct guesses
+            .values('expected_letter', 'submitted_letter')
+            .annotate(confusion_count=Count('id')) # count how many times the expected letter was confused with the submitted letter
+            .order_by('expected_letter', '-confusion_count')
+        )
+
+        letter_appearances = dict(
+            SubmittedLetter.objects.filter(exercise__child=child)
+            .values('expected_letter')
+            .annotate(total=Count('id'))
+            .values_list('expected_letter', 'total')
+        )
+        often_confused_letters = []
+        already_added_letters = set()
+        for confusion in confused_letters:
+            expected_letter = confusion['expected_letter']
+            # will want to add only the most confused letter with each letter
+            # it is the first in order in confused_letters because it is sorted by the confusion_count
+            # goes over the other letters confused with the same one
+            if expected_letter not in already_added_letters:
+                confused_with = confusion['submitted_letter']
+                confusion_count = confusion['confusion_count']
+                letter_total_appearances = letter_appearances.get(expected_letter, 1)
+                confusion_percentage = round((confusion_count / letter_total_appearances) * 100, 0)
+                # if it is confused often - add the submitted letter and the confusion count to the list of confused letters
+                if confusion_percentage >= 65: 
+                    often_confused_letters.append({
+                        'letter': expected_letter,
+                        'confused_with': confused_with,
+                        'times': confusion_count, # TODO probably remove - percentage is enough
+                        'confusion_percentage': confusion_percentage
+                    })
+
+        return Response({
+            'letter_scores': letter_scores,
+            'level_scores': level_scores,
+            'often_confused_letters': often_confused_letters
+        }, status=status.HTTP_200_OK)
     
 # both retrieve and delete methods are implemented in the same view - so they could be in the same path
 class ExerciseRetrieveDeleteView(generics.RetrieveDestroyAPIView):
