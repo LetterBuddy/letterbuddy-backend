@@ -13,7 +13,7 @@ import os
 import sys
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 from dotenv import load_dotenv
 
 
@@ -108,14 +108,18 @@ WSGI_APPLICATION = 'letterbuddy.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 # using neon postgresql
 tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': tmpPostgres.path.replace('/', ''),
         'USER': tmpPostgres.username,
-        'PASSWORD': tmpPostgres.password,
+        'PASSWORD': unquote(tmpPostgres.password),
         'HOST': tmpPostgres.hostname,
         'PORT': 5432,
+        'OPTIONS': {
+            'sslmode': 'require'
+        }
     }
 }
 
