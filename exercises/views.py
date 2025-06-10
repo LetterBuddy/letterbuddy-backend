@@ -1,3 +1,4 @@
+from collections import defaultdict
 import random
 import string
 from nltk.corpus import wordnet
@@ -25,6 +26,24 @@ from accounts.models import ChildProfile, AdultProfile
 from .serializers import *
 from .models import *
 
+
+HANDWRITTEN_CONFUSING_LETTER_PAIRS = [
+    ('b', 'd'), ('b', 'p'), ('b', 'q'), ('d', 'g'), ('d', 'q'),
+    ('e', 'a'), ('g', 'a'), ('g', 'y'), ('i', 'j'), ('i', 'l'),
+    ('k', 'x'), ('m', 'n'), ('n', 'c'), ('n', 'h'), ('p', 'q'),
+    ('u', 'v'), ('u', 'w'), ('u', 'y'), ('w', 'm'), ('y', 'v'),
+    ('C', 'c'), ('K', 'k'), ('O', 'o'), ('P', 'p'), ('S', 's'),
+    ('U', 'u'), ('V', 'v'), ('W', 'w'), ('X', 'x'), ('Y', 'y'),
+    ('l', 'I'), ('O', 'Q'),
+]
+
+# build a two way map of visually confusing letters
+LETTERS_CONFUSION_MAP = defaultdict(set)
+for a, b in HANDWRITTEN_CONFUSING_LETTER_PAIRS:
+    LETTERS_CONFUSION_MAP[a].add(b)
+    LETTERS_CONFUSION_MAP[b].add(a)
+
+
 azure_client = None
 groq_client = None
 paddleOcr = None
@@ -32,7 +51,6 @@ paddleOcr = None
 def initialize_models():
     # if any of the models is not initialized - try to initialize them
     global groq_client, paddleOcr, azure_client
-    print("Initializing models")
     if azure_client == None:
         try:
             azure_client = ChatCompletionsClient(
@@ -112,8 +130,6 @@ def get_models_analysis(exercise):
                         "content": [
                             {
                                 "type": "text",
-                                # adding "I have requested a child to write the following text: " + exercise.requested_text
-                                # made the model to guess what he requested instead of the text in the image
                                 "text": VLM_prompt
                             },
                             {
@@ -145,18 +161,19 @@ def get_models_analysis(exercise):
         VLM_answer_parts = [re.sub(r'\s+', ' ', part).strip() for part in VLM_answer_parts]
         for i in range(len(VLM_answer_parts)):
             print(f"VLM answer part {i}: {VLM_answer_parts[i]}")
-        VLM_guess = VLM_answer_parts[0]
-        # the feedback is the last part of the answer
-        exercise.feedback = VLM_answer_parts[-1].strip()
-        if exercise.level == ChildProfile.ExerciseLevel.CATEGORY:
-            # if the second part is "yes" - it means that the word is from that category
-            if len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "yes":
-                # if it is close to a word from the category - will we want to see how close it is
-                # TODO maybe we will prefer not to use requested_text field
-                exercise.requested_text = VLM_answer_parts[2].strip()
-            elif len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "no":
-                # if the second part is "no" - it means that the word is not from that category
-                exercise.submitted_text = VLM_guess
+        if len(VLM_answer_parts) > 0:
+            VLM_guess = VLM_answer_parts[0]
+            # the feedback is the last part of the answer
+            exercise.feedback = VLM_answer_parts[-1].strip()
+            if exercise.level == ChildProfile.ExerciseLevel.CATEGORY:
+                # if the second part is "yes" - it means that the word is from that category
+                if len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "yes":
+                    # if it is close to a word from the category - will we want to see how close it is
+                    # TODO maybe we will prefer not to use requested_text field
+                    exercise.requested_text = VLM_answer_parts[2].strip()
+                elif len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "no":
+                    # if the second part is "no" - it means that the word is not from that category
+                    exercise.submitted_text = VLM_guess
     results = [None]
     # if the exercise is a category exercise, but the VLM didn't think it is a word from that category - no need to use PaddleOCR
     if exercise.submitted_text == "":
@@ -234,12 +251,12 @@ def score_exercise(exercise, VLM_guess, paddleocr_analysis):
         elif paddleocr_char != '':
             submitted_char = paddleocr_char
             current_char_score = paddleocr_score * 0.3
+        
         # the correct character was detected by one of the models - add its confidence to the score
         if submitted_char == expected_char:
             avg_correctly_guessed_score += current_char_score
-        # TODO maybe also apply for similar characters like 'l' and 'I'
-        elif submitted_char.lower() == expected_char.lower():
-            # if the submitted char is the same as the expected char but with different case - give it a lower score
+        elif submitted_char in LETTERS_CONFUSION_MAP.get(expected_char, set()):
+            # if the submitted char is often confused with the expected char - make it contribute to the score
             avg_correctly_guessed_score += (1 - current_char_score)
         
         # TODO delete
