@@ -31,7 +31,9 @@ class ExerciseSerializer(serializers.ModelSerializer):
 class ExerciseStatsSerializer(serializers.Serializer):
     letter_scores = serializers.ListField()
     level_scores = serializers.ListField()
+    daily_scores = serializers.ListField()
     often_confused_letters = serializers.ListField()
+
 
 
 class SubmissionListSerializer(serializers.ModelSerializer):

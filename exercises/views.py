@@ -16,7 +16,8 @@ from azure.core.credentials import AzureKeyCredential
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Avg, Case, When, F, Value, FloatField, Count
+from django.db.models import Avg, Case, When, F, Value, FloatField, Count, Func
+from django.db.models.functions import TruncDate
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
@@ -375,6 +376,11 @@ class ExerciseStatsView(generics.GenericAPIView):
     permission_classes = [IsAuthenticatedAdult, ]
     serializer_class = ExerciseStatsSerializer
     def get(self, request, pk):
+        # in order to round the avg scores to 2 decimal places
+        class Round2(Func):
+            function = 'ROUND'
+            template = '%(function)s(%(expressions)s, 2)'
+        
         child = get_object_or_404(ChildProfile, pk=pk)
         # check if the child belongs to the current adult if not return 403 forbidden
         current_adult = AdultProfile.objects.get(user=request.user)
@@ -389,15 +395,24 @@ class ExerciseStatsView(generics.GenericAPIView):
                     default=Value(0.0),
                     output_field=FloatField()
                 )
-            ).values('expected_letter').annotate(letter=F('expected_letter'), avg_score=Avg('guessing_score')
+            ).values('expected_letter').annotate(letter=F('expected_letter'), avg_score=Round2(Avg('guessing_score'))
             ).values('letter', 'avg_score').order_by('letter'))
         
         # the avg score of the child in each level
+        # TODO maybe order so the levels will be in the order of the ExerciseLevel choices(or in the front)
         level_scores = (
             Exercise.objects.filter(child=child)
             .values('level')
-            .annotate(avg_score=Avg('score'))
-            .order_by('level')
+            .annotate(avg_score=Round2(Avg('score')))
+        )
+
+        # the avg score of the child in each day
+        daily_scores = (
+                Exercise.objects.filter(child=child)
+                .annotate(day=TruncDate('submission_date'))
+                .values('day')
+                .annotate(avg_score=Round2(Avg('score')), exercise_count=Count('id'))
+                .order_by('day')
         )
 
         # letters confused with other letters
@@ -428,6 +443,7 @@ class ExerciseStatsView(generics.GenericAPIView):
                 letter_total_appearances = letter_appearances.get(expected_letter, 1)
                 confusion_percentage = round((confusion_count / letter_total_appearances) * 100, 0)
                 # if it is confused often - add the submitted letter and the confusion count to the list of confused letters
+                # TODO maybe require a certain number of times confused in order to be considered often confused
                 if confusion_percentage >= 65: 
                     often_confused_letters.append({
                         'letter': expected_letter,
@@ -439,6 +455,7 @@ class ExerciseStatsView(generics.GenericAPIView):
         return Response({
             'letter_scores': letter_scores,
             'level_scores': level_scores,
+            'daily_scores': daily_scores,
             'often_confused_letters': often_confused_letters
         }, status=status.HTTP_200_OK)
     
