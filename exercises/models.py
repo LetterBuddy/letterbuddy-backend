@@ -23,12 +23,10 @@ class Exercise(models.Model):
     submitted_image = models.ImageField(null=True, blank=True)
     
     score = ScoreRoundingDecimalField(null=True, blank=True, max_digits=3, decimal_places=2, validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
-    # TODO maybe move ExerciseLevel here instead of ChildProfile
     level = models.CharField(max_length=50, choices=ChildProfile.ExerciseLevel.choices, default='letters')
     category = models.CharField(max_length=50, choices=ExerciseCategory.choices, null=True, blank=True)
 
     generated_date = models.DateTimeField(auto_now_add=True)
-
     submission_date = models.DateTimeField(null=True, blank=True)
 
     feedback = models.TextField(null=True, blank=True)

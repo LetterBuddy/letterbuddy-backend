@@ -25,8 +25,14 @@ class ExerciseSerializer(serializers.ModelSerializer):
     
     def get_letter_scores(self, obj):
         # an array of the scores for each letter by position
-        # TODO maybe return a score of 0 if the letter submitted is not the same as the expected letter rather than the score of the submitted letter
         return list(SubmittedLetter.objects.filter(exercise=obj).order_by('position').values_list('score', flat=True))
+
+
+class ExerciseStatsSerializer(serializers.Serializer):
+    letter_scores = serializers.ListField()
+    level_scores = serializers.ListField()
+    often_confused_letters = serializers.ListField()
+
 
 class SubmissionListSerializer(serializers.ModelSerializer):
     class Meta:

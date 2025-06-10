@@ -139,7 +139,6 @@ def get_models_analysis(exercise):
     # if any of the models was able to guess the text
     if VLM_answer:
         # split the answer by numberings(like 1. 2. 3.)
-        # TODO think about how to score a category exercise
         # Thought about giving half the score if the word is close to the requested category
         # and half for the distance between the guessed word and that word from the category
         VLM_answer_parts = re.split(r'\d+\.\s+', VLM_answer.choices[0].message.content.strip())[1:]
@@ -210,7 +209,6 @@ def score_exercise(exercise, VLM_guess, paddleocr_analysis):
     # TODO delete evaluation - only for debugging
     evaluation = []
     avg_correctly_guessed_score = 0.0
-    # TODO only fitted for letters and words with requested_text - category needs to be handled differently
     for i in range(len(expected_text)):
         VLM_char = VLM_comparison[i][1]
         VLM_score = VLM_comparison[i][2] 
@@ -242,7 +240,6 @@ def score_exercise(exercise, VLM_guess, paddleocr_analysis):
         # TODO maybe also apply for similar characters like 'l' and 'I'
         elif submitted_char.lower() == expected_char.lower():
             # if the submitted char is the same as the expected char but with different case - give it a lower score
-            # TODO maybe think of a different way to add this score 
             avg_correctly_guessed_score += (1 - current_char_score)
         
         # TODO delete
@@ -357,10 +354,9 @@ class ExerciseGenerationView(generics.GenericAPIView):
         return Response(serializer.data, status=response_status)
 
 
-# TODO maybe add what letters get confused with what letters
 class ExerciseStatsView(generics.GenericAPIView):
     permission_classes = [IsAuthenticatedAdult, ]
-
+    serializer_class = ExerciseStatsSerializer
     def get(self, request, pk):
         child = get_object_or_404(ChildProfile, pk=pk)
         # check if the child belongs to the current adult if not return 403 forbidden

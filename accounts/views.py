@@ -41,8 +41,6 @@ class LogoutView(generics.GenericAPIView):
 # model viewset - provides all the CRUD operations: 
 # 6 endpoints: GET(all) / GET(by id) / POST / PUT / PATCH / DELETE
 # POST - registering a child has a different serializer
-# TODO the GET request for a specific child(by id) is pointless at this point
-# TODO fix the user_id type for drf-spectacular
 class ChildrenView(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticatedAdult,)
     lookup_field = "user_id"
@@ -50,7 +48,6 @@ class ChildrenView(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         # create - for registering a child (POST)
-        # TODO create all the letter models for the child
         if self.action == 'create':
             return ChildRegisterSerializer
         return ChildSerializer

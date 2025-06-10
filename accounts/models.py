@@ -2,7 +2,6 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
-    # TODO check if email validation isn't case sensitive
     class Role(models.TextChoices):
         ADMIN = "ADMIN"
         ADULT = "ADULT"
