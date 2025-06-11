@@ -418,7 +418,8 @@ class ExerciseStatsView(generics.GenericAPIView):
         # letters confused with other letters
         confused_letters = (
             SubmittedLetter.objects.filter(exercise__child=child)
-            .exclude(expected_letter=F('submitted_letter')) #don't include correct guesses
+            .exclude(expected_letter=F('submitted_letter')) # don't include correct guesses
+            .exclude(submitted_letter='') # don't include empty guesses
             .values('expected_letter', 'submitted_letter')
             .annotate(confusion_count=Count('id')) # count how many times the expected letter was confused with the submitted letter
             .order_by('expected_letter', '-confusion_count')
