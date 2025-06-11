@@ -408,7 +408,7 @@ class ExerciseStatsView(generics.GenericAPIView):
 
         # the avg score of the child in each day
         daily_scores = (
-                Exercise.objects.filter(child=child)
+                Exercise.objects.filter(child=child, submission_date__isnull=False)
                 .annotate(day=TruncDate('submission_date'))
                 .values('day')
                 .annotate(avg_score=Round2(Avg('score')), exercise_count=Count('id'))
