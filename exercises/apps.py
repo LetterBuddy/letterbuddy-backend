@@ -1,6 +1,4 @@
-import nltk
 from django.apps import AppConfig
-from nltk.corpus import wordnet
 
 # runs only when the server starts(twice if --noreload is not used in runserver, if used - only once)
 class ExercisesConfig(AppConfig):
@@ -11,16 +9,4 @@ class ExercisesConfig(AppConfig):
         # to avoid django imports before the app is ready
         from .views import initialize_models
         initialize_models()
-
-        # Check if wordnet is already available
-        try:
-            nltk.data.find('corpora/wordnet.zip')
-            print("wordnet is already available")
-        # if not, download it
-        except LookupError:
-            print("wordnet was not found")
-            nltk.download('wordnet', quiet=True)
-            print("wordnet download complete")
-        # load wordnet data to avoid cold start
-        _ = wordnet.synsets('dog')
 
