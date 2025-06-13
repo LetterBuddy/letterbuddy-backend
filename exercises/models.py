@@ -9,12 +9,19 @@ class ScoreRoundingDecimalField(models.DecimalField):
 
 
 class Exercise(models.Model):
-    # TODO add more according to wordnet categories
     class ExerciseCategory(models.TextChoices):
         VEHICLE = "vehicle"
         ANIMAL = "animal"
         COLOR = "color"
         TOY = "toy"
+        FOOD = "food"
+        CLOTHING = "clothing"
+        ACTION = "action"
+        JOB = "job"
+        NATURE = "nature"
+        FAMILY = "family"
+        PLACE = "place"
+
 
     child = models.ForeignKey(ChildProfile ,on_delete=models.CASCADE)
     requested_text = models.CharField()
@@ -42,6 +49,13 @@ class SubmittedLetter(models.Model):
     position = models.IntegerField()
     def __str__(self):
         return "Expected:" + self.expected_letter + " submitted:" + self.submitted_letter + " score:" + str(self.score) + " position:" + str(self.position)
+
+
+class CategorizedWord(models.Model):
+    word = models.CharField(max_length=100)
+    category = models.CharField(max_length=50, choices=Exercise.ExerciseCategory.choices, db_index=True)
+    def __str__(self):
+        return self.word + " category:" + self.category
 
 class Article(models.Model):
     title = models.CharField(max_length=200)

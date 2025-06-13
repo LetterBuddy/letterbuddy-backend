@@ -22,6 +22,7 @@ jobs:
         JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
         CLOUDINARY_URL : ${{ secrets.CLOUDINARY_URL }}
         GROQ_API_KEY : ${{ secrets.GROQ_API_KEY }}
+        AZURE_TOKEN : ${{ secrets.AZURE_TOKEN }}
     
     steps:
     - uses: actions/checkout@v4

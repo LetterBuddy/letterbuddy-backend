@@ -1,7 +1,6 @@
 from collections import defaultdict
 import random
 import string
-from nltk.corpus import wordnet
 from PIL import Image
 import numpy as np
 import re
@@ -352,17 +351,11 @@ class ExerciseGenerationView(generics.GenericAPIView):
                 requested_text = requested_text * random.randint(3, 8)
             else:
                 category = random.choice([choice[0] for choice in Exercise.ExerciseCategory.choices])
-                # choose a random word from the chosen category from wordnet
+                # choose a random word from the chosen category from the categorized words
                 if current_child_level == ChildProfile.ExerciseLevel.WORDS:
-                    synsets = wordnet.synsets(category)
-                    hyponyms = []
-                    for synset in synsets:
-                        hyponyms.extend(synset.hyponyms())
-                    while True:
-                        random_hyponym = random.choice(hyponyms)
-                        requested_text = random.choice(random_hyponym.lemmas()).name()
-                        if "_" not in requested_text and " " not in requested_text and "-" not in requested_text:
-                            break
+                    requested_text = random.choice(
+                        CategorizedWord.objects.filter(category=category).values_list('word', flat=True)
+                    )
 
             exercise = Exercise.objects.create(child=current_child, requested_text=requested_text, level=current_child_level, category=category)
             response_status = status.HTTP_201_CREATED
