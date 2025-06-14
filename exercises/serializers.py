@@ -11,11 +11,14 @@ class ExerciseGenerationSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'requested_text', 'level', 'category')
 
 class ExerciseSubmitSerializer(serializers.ModelSerializer):
+    letter_scores = serializers.SerializerMethodField()
     class Meta:
         model = Exercise
-        fields = ('submitted_text', 'submitted_image', 'submission_date', 'score', 'feedback')
-        read_only_fields = ('submitted_text', 'submission_date', 'score', 'feedback')
-
+        fields = ('submitted_text', 'requested_text', 'submitted_image', 'submission_date', 'score', 'feedback', 'letter_scores')
+        read_only_fields = ('submitted_text', 'requested_text', 'submission_date', 'score', 'feedback', 'letter_scores')
+    def get_letter_scores(self, obj):
+        # an array of the scores for each letter by position
+        return list(SubmittedLetter.objects.filter(exercise=obj).order_by('position').values_list('score', flat=True))
 
 class ExerciseSerializer(serializers.ModelSerializer):
     letter_scores = serializers.SerializerMethodField()
