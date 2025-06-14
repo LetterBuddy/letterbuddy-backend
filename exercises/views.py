@@ -34,7 +34,7 @@ HANDWRITTEN_CONFUSING_LETTER_PAIRS = [
     ('u', 'v'), ('u', 'w'), ('u', 'y'), ('w', 'm'), ('y', 'v'),
     ('C', 'c'), ('K', 'k'), ('O', 'o'), ('P', 'p'), ('S', 's'),
     ('U', 'u'), ('V', 'v'), ('W', 'w'), ('X', 'x'), ('Y', 'y'),
-    ('l', 'I'), ('O', 'Q'),
+    ('l', 'I'), ('O', 'Q'), ('f', 'F')
 ]
 
 # build a two way map of visually confusing letters
@@ -82,13 +82,49 @@ def get_models_analysis(exercise):
         initialize_models()
     VLM_answer = None
     if exercise.level == ChildProfile.ExerciseLevel.CATEGORY:
-        VLM_prompt = f"""A child submitted this image, write(number the parts, without **):
-                                1. only what he exactly wrote? (there can be words that do not exist).
-                                2. only Can it be a word from the category '{exercise.category}' (maybe with typos)? Yes/no
-                                3. only If yes then write only what word could it be?
-                                4. analyze the handwriting for his parent (talk about Letter Foundation, Letter spacing and size, Line quality, and any other relevant details)"""
-    else:
-        VLM_prompt = "write(without any more words or **, number the parts): 1. the text in the image - exactly what you recognize(there can be words that don't exists) in one line without spaces between submitted letters, notice- there might be capital letters too 2. analyze the handwriting for his parent(talk about Letter Foundation, Letter spacing and size, Line quality, and any other relevant details)"
+       VLM_prompt = f"""
+                    A child submitted this image. Please follow the instructions exactly. 
+                    Do NOT explain your answers. ONLY output what is requested. Do not add arrows, symbols, or comments.
+                    Number the parts clearly
+                    1. What did the child write exactly? Transcribe ALL the visible words or text the child wrote, in order, even if the words are misspelled or made-up. Do NOT correct them. Do NOT skip any. Do NOT explain.
+                    2. Could it be a word from the category '{exercise.category}' (possibly with typos)? Answer only "Yes" or "No".
+                    3. If yes, what is the corrected word? Write ONLY the single corrected word. Do NOT show the original. Do NOT explain.
+                    4. Provide an analysis of the handwriting for the parent. Discuss:
+                    - Letter formation
+                    - Spacing and size
+                    - Line quality
+                    - Any other relevant features
+                    """
+    elif exercise.level == ChildProfile.ExerciseLevel.WORDS:
+        VLM_prompt = f"""
+                    A child submitted this image. Please follow the instructions exactly. 
+                    Do NOT explain your answers. ONLY output what is requested. Do not add arrows, symbols, or comments.
+                    Number the parts clearly
+                    1. What did the child write exactly? Transcribe ALL the visible words or text the child wrote, in order, even if the words are misspelled or made-up. Do NOT correct them. Do NOT skip any. Do NOT explain.
+                    2. Provide an analysis of the handwriting for the parent. Discuss:
+                    - Letter formation
+                    - Spacing and size
+                    - Line quality
+                    - Any other relevant features
+                    """
+    elif exercise.level == ChildProfile.ExerciseLevel.LETTERS:
+        VLM_prompt = f"""
+                    A child submitted this image. Please follow the instructions exactly. 
+                    Do NOT explain your answers. ONLY output what is requested. Do not add arrows, symbols, or comments.
+                    Number the parts clearly
+
+                    1. What is written in the image — transcribe the text *exactly* as it appears.
+                    - The child only writes alphabetic characters (A–Z or a–z). There are no numbers, punctuation, or special symbols.
+                    - This includes case changes *within words* (e.g., "hElLo" must be transcribed exactly like that).
+                    - DO NOT normalize capitalization — this is critical.
+                    - Ignore spaces between repeated letters (e.g., "A A A" → "AAA").
+
+                    2. Provide an analysis of the handwriting for the parent. Discuss:
+                    - Letter formation
+                    - Spacing and size
+                    - Line quality
+                    - Any other relevant features
+                    """
     # if azure was initialized - use it as our first choice for a VLM model
     if azure_client:
         try:
@@ -112,7 +148,7 @@ def get_models_analysis(exercise):
             ],
                 temperature=0.5,
                 top_p=1.0,
-                max_tokens=100,
+                max_tokens=150,
                 model="openai/gpt-4.1-mini"
             )
             print("Azure answered successfully")
@@ -142,7 +178,7 @@ def get_models_analysis(exercise):
                     }
                 ],
                 temperature=0.5,
-                max_tokens=100,
+                max_tokens=150,
                 n=1,
                 stop=None
             )
@@ -169,7 +205,6 @@ def get_models_analysis(exercise):
                 # if the second part is "yes" - it means that the word is from that category
                 if len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "yes":
                     # if it is close to a word from the category - will we want to see how close it is
-                    # TODO maybe we will prefer not to use requested_text field
                     exercise.requested_text = VLM_answer_parts[2].strip()
                 elif len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "no":
                     # if the second part is "no" - it means that the word is not from that category
@@ -275,7 +310,9 @@ def score_exercise(exercise, VLM_guess, paddleocr_analysis):
     # average the score
     print("Evaluation of the exercise: ", evaluation)
     avg_correctly_guessed_score /= len(expected_text) if len(expected_text) > 0 else 1.0
-    levenshtein_ratio = Levenshtein.ratio(expected_text, VLM_guess) if VLM_guess else Levenshtein.ratio(expected_text, paddleocr_text)
+    VLM_levenshtein_ratio = Levenshtein.ratio(expected_text, VLM_guess) if VLM_guess else 0.0
+    paddleocr_levenshtein_ratio = Levenshtein.ratio(expected_text, paddleocr_text) if paddleocr_text else 0.0
+    levenshtein_ratio = max(VLM_levenshtein_ratio, paddleocr_levenshtein_ratio)
     exercise.score = (avg_correctly_guessed_score + levenshtein_ratio) / 2
     print("submitted: " + exercise.submitted_text + " Average score:", avg_correctly_guessed_score, "Levenshtein ratio:", levenshtein_ratio, "Final score:", exercise.score)
 
