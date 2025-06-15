@@ -205,7 +205,7 @@ def get_models_analysis(exercise):
                 # if the second part is "yes" - it means that the word is from that category
                 if len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "yes":
                     # if it is close to a word from the category - will we want to see how close it is
-                    exercise.requested_text = VLM_answer_parts[2].strip()
+                    exercise.requested_text = VLM_answer_parts[2].strip().split(" ")[0]
                 elif len(VLM_answer_parts) > 1 and VLM_answer_parts[1].lower() == "no":
                     # if the second part is "no" - it means that the word is not from that category
                     exercise.submitted_text = VLM_guess
@@ -292,7 +292,7 @@ def score_exercise(exercise, VLM_guess, paddleocr_analysis):
             avg_correctly_guessed_score += current_char_score
         elif submitted_char in LETTERS_CONFUSION_MAP.get(expected_char, set()):
             # if the submitted char is often confused with the expected char - make it contribute to the score
-            avg_correctly_guessed_score += (1 - current_char_score)
+            avg_correctly_guessed_score += (0.5 * current_char_score)
         
         evaluation.append((expected_char, submitted_char, current_char_score))
 
