@@ -258,7 +258,7 @@ def score_exercise(exercise, VLM_guess, paddleocr_analysis):
     paddleocr_comparison = compare_expected_with_recognized(exercise.requested_text, paddleocr_text, paddleocr_scores)
     print(f"PaddleOCR comparison: {paddleocr_comparison}")
     print(f"VLM comparison: {VLM_comparison}")
-    # TODO delete evaluation - only for debugging
+    # evaluation for debugging
     evaluation = []
     avg_correctly_guessed_score = 0.0
     for i in range(len(expected_text)):
@@ -294,7 +294,6 @@ def score_exercise(exercise, VLM_guess, paddleocr_analysis):
             # if the submitted char is often confused with the expected char - make it contribute to the score
             avg_correctly_guessed_score += (1 - current_char_score)
         
-        # TODO delete
         evaluation.append((expected_char, submitted_char, current_char_score))
 
         exercise.submitted_text += submitted_char
@@ -425,15 +424,14 @@ class ExerciseStatsView(generics.GenericAPIView):
                     default=Value(0.0),
                     output_field=FloatField()
                 )
-            ).values('expected_letter').annotate(letter=F('expected_letter'), avg_score=Round2(Avg('guessing_score'))
+            ).values('expected_letter').annotate(letter=F('expected_letter'), avg_score=100 * Round2(Avg('guessing_score'))
             ).values('letter', 'avg_score').order_by('letter'))
         
         # the avg score of the child in each level
-        # TODO maybe order so the levels will be in the order of the ExerciseLevel choices(or in the front)
         level_scores = (
             Exercise.objects.filter(child=child)
             .values('level')
-            .annotate(avg_score=Round2(Avg('score')))
+            .annotate(avg_score=100* Round2(Avg('score')))
         )
 
         # the avg score of the child in each day
@@ -441,7 +439,7 @@ class ExerciseStatsView(generics.GenericAPIView):
                 Exercise.objects.filter(child=child, submission_date__isnull=False)
                 .annotate(day=TruncDate('submission_date'))
                 .values('day')
-                .annotate(avg_score=Round2(Avg('score')), exercise_count=Count('id'))
+                .annotate(avg_score=100* Round2(Avg('score')), exercise_count=Count('id'))
                 .order_by('day')
         )
 
@@ -474,12 +472,11 @@ class ExerciseStatsView(generics.GenericAPIView):
                 letter_total_appearances = letter_appearances.get(expected_letter, 1)
                 confusion_percentage = round((confusion_count / letter_total_appearances) * 100, 0)
                 # if it is confused often - add the submitted letter and the confusion count to the list of confused letters
-                # TODO maybe require a certain number of times confused in order to be considered often confused
-                if confusion_percentage >= 65: 
+                if confusion_percentage >= 65 and confusion_count >= 3: 
                     often_confused_letters.append({
                         'letter': expected_letter,
                         'confused_with': confused_with,
-                        'times': confusion_count, # TODO probably remove - percentage is enough
+                        'times': confusion_count,
                         'confusion_percentage': confusion_percentage
                     })
 
