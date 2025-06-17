@@ -20,7 +20,15 @@ class ExerciseSubmitSerializer(serializers.ModelSerializer):
         read_only_fields = ('submitted_text', 'requested_text', 'submission_date', 'score', 'feedback', 'letter_scores')
     def get_letter_scores(self, obj):
         # an array of the scores for each letter by position
-        return list(SubmittedLetter.objects.filter(exercise=obj).order_by('position').values_list('score', flat=True))
+        return list(SubmittedLetter.objects
+                    .filter(exercise=obj)
+                    .order_by('position')
+                    .annotate(
+                            new_score=Case(
+                                When(submitted_letter=F('expected_letter'), then = 1 - F('score')),
+                                default=Value(1),
+                                output_field=FloatField()
+                            )).values_list('new_score', flat=True))
 
 class ExerciseSerializer(serializers.ModelSerializer):
     letter_scores = serializers.SerializerMethodField()
