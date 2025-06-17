@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from django.db.models import Case, When, Value, F
+from django.db.models import FloatField
 from .models import *
 
 
@@ -28,8 +30,17 @@ class ExerciseSerializer(serializers.ModelSerializer):
     
     def get_letter_scores(self, obj):
         # an array of the scores for each letter by position
-        return list(SubmittedLetter.objects.filter(exercise=obj).order_by('position').values_list('score', flat=True))
-
+        scores = list(
+            SubmittedLetter.objects
+            .filter(exercise=obj)
+            .order_by('position')
+            .annotate(
+                new_score=Case(
+                    When(submitted_letter=F('expected_letter'), then=F('score')),
+                    default=Value(0),
+                    output_field=FloatField()
+                )).values_list('new_score', flat=True))
+        return scores
 
 class ExerciseStatsSerializer(serializers.Serializer):
     letter_scores = serializers.ListField()

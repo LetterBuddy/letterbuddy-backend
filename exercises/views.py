@@ -34,7 +34,7 @@ HANDWRITTEN_CONFUSING_LETTER_PAIRS = [
     ('u', 'v'), ('u', 'w'), ('u', 'y'), ('w', 'm'), ('y', 'v'),
     ('C', 'c'), ('K', 'k'), ('O', 'o'), ('P', 'p'), ('S', 's'),
     ('U', 'u'), ('V', 'v'), ('W', 'w'), ('X', 'x'), ('Y', 'y'),
-    ('l', 'I'), ('O', 'Q'), ('f', 'F')
+    ('l', 'I'), ('O', 'Q'), ('f', 'F'), ('z', 'Z'), ('q', 'a')
 ]
 
 # build a two way map of visually confusing letters
@@ -536,4 +536,3 @@ class ArticlesView(generics.ListAPIView):
     serializer_class = ArticleSerializer
     permission_classes = (IsAuthenticatedAdult, )
     queryset = Article.objects.all()
-
