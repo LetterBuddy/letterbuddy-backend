@@ -187,7 +187,7 @@ def get_models_analysis(exercise):
             print("Failed to recognize the text using the groq's VLM model")
             print(e)
 
-    VLM_guess = ""
+    VLM_guess = None
     # if any of the models was able to guess the text
     if VLM_answer:
         # split the answer by numberings(like 1. 2. 3.)
@@ -251,6 +251,7 @@ def compare_expected_with_recognized(expected, recognized, scores):
 def score_exercise(exercise, VLM_guess, paddleocr_analysis):
     print('\nDetected characters and their confidence score: ')
     expected_text = exercise.requested_text
+    VLM_guess = VLM_guess if VLM_guess else ''
     VLM_comparison = compare_expected_with_recognized(exercise.requested_text, VLM_guess, [1.0] * len(VLM_guess))
     paddleocr_text = ''.join([paddleocr_analysis[0][0][1][i][0] for i in range(len(paddleocr_analysis[0][0][1]))] if paddleocr_analysis[0] else [])
     paddleocr_scores = [paddleocr_analysis[1][i] for i in range(len(paddleocr_analysis[1]))] if paddleocr_analysis and len(paddleocr_analysis) > 1  else []
@@ -341,7 +342,7 @@ class ExerciseSubmissionView(generics.GenericAPIView):
         VLM_guess, results = get_models_analysis(exercise)
 
         # if any of the models was able to guess the text
-        if results[0] != None or VLM_guess != "":
+        if results[0] != None or VLM_guess != None:
             score_exercise(exercise, VLM_guess, results)
         
         exercise.submission_date = save_submission_date
