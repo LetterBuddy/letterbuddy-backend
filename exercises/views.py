@@ -86,9 +86,16 @@ def get_models_analysis(exercise):
                     A child submitted this image. Please follow the instructions exactly. 
                     Do NOT explain your answers. ONLY output what is requested. Do not add arrows, symbols, or comments.
                     Number the parts clearly
-                    1. What did the child write exactly? Transcribe ALL the visible words or text the child wrote, in order, even if the words are misspelled or made-up. Do NOT correct them. Do NOT skip any. Do NOT explain.
+                    
+                    1. What is written in the image — transcribe the text *exactly* as it appears.
+                    - The child only writes alphabetic characters (A–Z or a–z). There are no numbers, punctuation, or special symbols.
+                    - This includes case changes *within words* (e.g., "hElLo" must be transcribed exactly like that).
+                    - DO NOT normalize capitalization — this is critical.
+                    
                     2. Could it be a word from the category '{exercise.category}' (possibly with typos)? Answer only "Yes" or "No".
+                    
                     3. If yes, what is the corrected word? Write ONLY the single corrected word. Do NOT show the original. Do NOT explain.
+                    
                     4. Provide an analysis of the handwriting for the parent. Discuss:
                     - Letter formation
                     - Spacing and size
@@ -100,7 +107,12 @@ def get_models_analysis(exercise):
                     A child submitted this image. Please follow the instructions exactly. 
                     Do NOT explain your answers. ONLY output what is requested. Do not add arrows, symbols, or comments.
                     Number the parts clearly
-                    1. What did the child write exactly? Transcribe ALL the visible words or text the child wrote, in order, even if the words are misspelled or made-up. Do NOT correct them. Do NOT skip any. Do NOT explain.
+
+                    1. What is written in the image — transcribe the text *exactly* as it appears.
+                    - The child only writes alphabetic characters (A–Z or a–z). There are no numbers, punctuation, or special symbols.
+                    - This includes case changes *within words* (e.g., "hElLo" must be transcribed exactly like that).
+                    - DO NOT normalize capitalization — this is critical.
+                    
                     2. Provide an analysis of the handwriting for the parent. Discuss:
                     - Letter formation
                     - Spacing and size
