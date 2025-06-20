@@ -446,7 +446,9 @@ class ExerciseStatsView(generics.GenericAPIView):
             .values('level')
             .annotate(avg_score=100* Round2(Avg('score')))
         )
-
+        level_order = ['letters', 'words', 'category']
+        # sort the scores by the level order
+        level_scores = sorted(level_scores, key=lambda x: level_order.index(x['level']))
         # the avg score of the child in each day
         daily_scores = (
                 Exercise.objects.filter(child=child, submission_date__isnull=False)
